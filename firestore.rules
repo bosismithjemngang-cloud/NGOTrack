@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * NGOTrack Security Rules
+     * 
+     * Core Philosophy:
+     * This ruleset implements a robust, denormalized security model designed for scalability 
+     * and performance. It prioritizes "Authorization Independence," meaning every document 
+     * contains the necessary information (like a 'projectMembers' map) to make an 
+     * authorization decision without performing expensive lookups (get() calls) to 
+     * parent documents.
+     *
+     * Data Structure:
+     * The database uses a flat structure where all major entities (Projects, Activities, 
+     * Expenses, etc.) reside in top-level collections. Relationship integrity is maintained 
+     * through denormalized IDs (e.g., projectId) and permission maps.
+     *
+     * Key Security Decisions:
+     * 1. Project-Based Access: Access to project-related data is controlled by a 
+     *    `projectMembers` map stored on every project document and its children. 
+     *    This map follows the format: { "userId": "role" }.
+     * 2. Global Admin Role: Users with the 'admin' role in their UserProfile document 
+     *    bypass most restrictions to perform maintenance and oversight.
+     * 3. Identity-to-Path Binding: User profiles are locked to the Firebase Auth UID.
+     * 4. Denormalization for Performance: Security rules rely on data being copied 
+     *    from the 'Project' document into its related child entities (Activities, Reports, etc.) 
+     *    to ensure O(1) security checks during list and get operations.
+     */
+
+    // --- Helper Functions ---
+
+    /** Simple check if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** 
+     * Checks if the user has a specific global role. 
+     * Note: Performs a cross-document read on the user's profile.
+     */
+    function hasGlobalRole(role) {
+      return isSignedIn() && get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == role;
+    }
+
+    /** Shortcut for checking if the user is a global administrator. */
+    function isAdmin() {
+      return hasGlobalRole('admin');
+    }
+
+    /** 
+     * Checks if the authenticated user is a member of a project based on 
+     * a denormalized 'projectMembers' map on the document.
+     */
+    function isProjectMember(data) {
+      return isSignedIn() && request.auth.uid in data.projectMembers;
+    }
+
+    /** Checks if the user has one of the specified roles within a specific project. */
+    function hasProjectRole(data, roles) {
+      return isProjectMember(data) && data.projectMembers[request.auth.uid] in roles;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for user profile management. Users own their data; admins manage all.
+     * @path /user_profiles/{userId}
+     * @allow (get) If auth.uid == userId OR user is admin.
+     * @deny (write) If auth.uid != userId and user is not admin.
+     * @principle Path-based ownership and Role-Based Access Control.
+     */
+    match /user_profiles/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if (isOwner(userId) && resource != null) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Donors are managed by admins. M&E Officers/Staff can read donor info.
+     * @path /donors/{donorId}
+     * @allow (get, list) If signed in.
+     * @deny (create, update, delete) If not an admin.
+     * @principle Global role-based restriction for sensitive financial/entity data.
+     */
+    match /donors/{donorId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Projects are shared resources. Access is controlled by the projectMembers map.
+     * @path /projects/{projectId}
+     * @allow (get, list) If user is in the projectMembers map or is admin.
+     * @deny (update) If user is not an 'admin' or 'manager' in the projectMembers map.
+     * @principle Shared access via denormalized member maps.
+     */
+    match /projects/{projectId} {
+      allow get, list: if isAdmin() || isProjectMember(resource.data);
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || (resource != null && hasProjectRole(resource.data, ['admin', 'manager']));
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Activities, KPI, Reports, and Expenses all follow the same Project-Member pattern.
+     * @path /activities/{id}, /project_kpis/{id}, /monitoring_reports/{id}, /expenses/{id}
+     * @allow (create) If the user is a member of the project defined in the document.
+     * @deny (get) If the user is not a project member or admin.
+     * @principle Authorization Independence via denormalized projectMembers map.
+     */
+    match /activities/{id} {
+      allow get, list: if isAdmin() || isProjectMember(resource.data);
+      allow create: if isAdmin() || isProjectMember(request.resource.data);
+      allow update, delete: if isAdmin() || (resource != null && isProjectMember(resource.data));
+    }
+
+    match /project_kpis/{id} {
+      allow get, list: if isAdmin() || isProjectMember(resource.data);
+      allow create: if isAdmin() || isProjectMember(request.resource.data);
+      allow update, delete: if isAdmin() || (resource != null && isProjectMember(resource.data));
+    }
+
+    match /monitoring_reports/{id} {
+      allow get, list: if isAdmin() || isProjectMember(resource.data);
+      allow create: if isAdmin() || isProjectMember(request.resource.data);
+      allow update, delete: if isAdmin() || (resource != null && isProjectMember(resource.data));
+    }
+
+    match /expenses/{id} {
+      allow get, list: if isAdmin() || isProjectMember(resource.data);
+      allow create: if isAdmin() || isProjectMember(request.resource.data);
+      allow update, delete: if isAdmin() || (resource != null && isProjectMember(resource.data));
+    }
+
+    /**
+     * @description Documents can be personal (owned by uploader) or project-linked.
+     * @path /documents/{documentId}
+     * @allow (get) If owner, or project member (if projectId exists), or admin.
+     * @deny (create) If the uploadedByUserId does not match the auth UID.
+     * @principle Hybrid security model combining ownership and shared project access.
+     */
+    match /documents/{documentId} {
+      allow get, list: if isAdmin() 
+                       || (resource.data.uploadedByUserId == request.auth.uid) 
+                       || (resource.data.projectId != null && isProjectMember(resource.data));
+      
+      allow create: if isSignedIn() 
+                    && request.resource.data.uploadedByUserId == request.auth.uid;
+      
+      allow update, delete: if isAdmin() 
+                            || (resource != null && resource.data.uploadedByUserId == request.auth.uid);
+    }
+  }
+}
