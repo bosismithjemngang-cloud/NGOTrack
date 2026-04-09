@@ -31,8 +31,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useAuth } from "@/firebase";
-import { signOut, signInAnonymously } from "firebase/auth";
+import { useUser, useAuth, useDoc, useMemoFirebase, useFirestore } from "@/firebase";
+import { signOut } from "firebase/auth";
+import { doc } from "firebase/firestore";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -47,26 +48,40 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const db = useFirestore();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
+  // Fetch User Profile to get organizationId
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(db, "user_profiles", user.uid);
+  }, [db, user]);
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+
   useEffect(() => {
     if (!isUserLoading && !user) {
-      signInAnonymously(auth);
+      router.push("/auth/login");
     }
-  }, [user, isUserLoading, auth]);
+  }, [user, isUserLoading, router]);
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/");
   };
 
-  if (isUserLoading) {
+  if (isUserLoading || (user && isProfileLoading)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  // If logged in but no profile (e.g., initial signup race condition or error), we'd usually redirect to an onboarding or error page.
+  // For simplicity, we just check if profile exists here.
+  if (user && !isProfileLoading && !profile) {
+    return <div className="p-8 text-center">User profile not found. Please contact support.</div>;
   }
 
   return (
@@ -135,12 +150,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Button>
               <div className="flex items-center gap-3 pl-4 border-l">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium">{user?.displayName || (user?.isAnonymous ? "Guest User" : user?.email) || "Guest"}</p>
-                  <p className="text-xs text-muted-foreground">NGO Member</p>
+                  <p className="text-sm font-medium">{profile?.firstName} {profile?.lastName}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
                 </div>
                 <Avatar className="h-9 w-9 border border-primary/20">
-                  <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid || '1'}/40/40`} />
-                  <AvatarFallback>{(user?.displayName?.[0] || user?.email?.[0] || "U").toUpperCase()}</AvatarFallback>
+                  <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} />
+                  <AvatarFallback>{profile?.firstName?.[0]}</AvatarFallback>
                 </Avatar>
               </div>
             </div>

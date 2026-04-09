@@ -1,611 +1,96 @@
+
 {
   "entities": {
+    "Organization": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Organization",
+      "type": "object",
+      "description": "Represents a non-profit organization or NGO that is a tenant on the platform.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Legal name of the NGO." },
+        "taxId": { "type": "string", "description": "Registration number or Tax ID." },
+        "ownerId": { "type": "string", "description": "UID of the user who created the organization." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId", "createdAt"]
+    },
     "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user within the NGOTrack application with their profile information and assigned role.",
+      "description": "User profile linked to a specific organization.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address, used for identification (not authentication credentials).",
-          "format": "email"
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the user."
-        },
-        "role": {
-          "type": "string",
-          "description": "The assigned role of the user, determining their access permissions within the application.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user profile was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user profile was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "organizationId": { "type": "string", "description": "The tenant ID this user belongs to." },
+        "role": { "type": "string", "enum": ["admin", "manager", "officer", "staff"] },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "email",
-        "firstName",
-        "lastName",
-        "role",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "email", "firstName", "lastName", "organizationId", "role", "createdAt"]
     },
     "Donor": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Donor",
       "type": "object",
-      "description": "Represents an organization or individual providing financial support to NGO projects.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Donor entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The official name of the donor organization or individual."
-        },
-        "contactPerson": {
-          "type": "string",
-          "description": "The name of the primary contact person for the donor."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the donor's contact person.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The phone number of the donor's contact person."
-        },
-        "address": {
-          "type": "string",
-          "description": "The physical address of the donor."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the donor record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the donor record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "organizationId", "name", "createdAt"]
     },
     "Project": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Project",
       "type": "object",
-      "description": "Represents a specific project managed by the NGO, including its details, budget, and current status.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Project entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The official name or title of the project."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the project's objectives, activities, and expected outcomes."
-        },
-        "location": {
-          "type": "string",
-          "description": "The geographical location or area where the project is being implemented."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "The planned start date of the project.",
-          "format": "date"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The planned end date of the project.",
-          "format": "date"
-        },
-        "budget": {
-          "type": "number",
-          "description": "The total approved monetary budget allocated for the project."
-        },
-        "donorId": {
-          "type": "string",
-          "description": "Reference to the Donor providing funding for this project. (Relationship: Donor 1:N Project)"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current operational status of the project.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who initially created this project record. (Relationship: UserProfile 1:N Project)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the project record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the project record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "budget": { "type": "number" },
+        "projectMembers": { "type": "object", "description": "Map of user IDs to roles within this project." },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "location",
-        "startDate",
-        "endDate",
-        "budget",
-        "status",
-        "createdByUserId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Activity": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Activity",
-      "type": "object",
-      "description": "Represents a specific task or action carried out as part of a project, with assignment and progress tracking.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Activity entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project this activity belongs to. (Relationship: Project 1:N Activity)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name or brief title of the activity."
-        },
-        "description": {
-          "type": "string",
-          "description": "A more detailed description of what the activity entails."
-        },
-        "assignedUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who is responsible for this activity. (Relationship: UserProfile 1:N Activity)"
-        },
-        "deadlineDate": {
-          "type": "string",
-          "description": "The target date by which the activity should be completed.",
-          "format": "date"
-        },
-        "progressPercentage": {
-          "type": "number",
-          "description": "The current completion progress of the activity, expressed as a percentage from 0 to 100.",
-          "items": {
-            "type": "number"
-          }
-        },
-        "isCompleted": {
-          "type": "boolean",
-          "description": "A boolean flag indicating whether the activity has been marked as fully completed."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the activity record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the activity record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "projectId",
-        "name",
-        "assignedUserId",
-        "deadlineDate",
-        "progressPercentage",
-        "isCompleted",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "ProjectKPI": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ProjectKPI",
-      "type": "object",
-      "description": "Defines a Key Performance Indicator (KPI) specific to a project, including its target value and unit of measure.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ProjectKPI entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project this KPI is associated with. (Relationship: Project 1:N ProjectKPI)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the Key Performance Indicator (e.g., 'Number of Beneficiaries Reached')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed explanation of what the KPI measures."
-        },
-        "targetValue": {
-          "type": "number",
-          "description": "The specific target numerical value set for this KPI within the project."
-        },
-        "unitOfMeasure": {
-          "type": "string",
-          "description": "The unit in which the KPI's value is measured (e.g., 'people', 'USD', 'hours')."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the KPI record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the KPI record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "projectId",
-        "name",
-        "targetValue",
-        "unitOfMeasure",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "MonitoringReport": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "MonitoringReport",
-      "type": "object",
-      "description": "Captures periodic monitoring and evaluation data for a project, including observations, comments, and actual KPI values.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the MonitoringReport entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project this monitoring report is for. (Relationship: Project 1:N MonitoringReport)"
-        },
-        "reportDate": {
-          "type": "string",
-          "description": "The date when the monitoring report was conducted or submitted.",
-          "format": "date"
-        },
-        "reportedByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who submitted this monitoring report. (Relationship: UserProfile 1:N MonitoringReport)"
-        },
-        "comments": {
-          "type": "string",
-          "description": "General comments, feedback, or notes from the monitoring visit."
-        },
-        "observations": {
-          "type": "string",
-          "description": "Detailed observations made during the monitoring process, documenting progress or challenges."
-        },
-        "kpiValues": {
-          "type": "array",
-          "description": "An array of actual values recorded for specific Project KPIs at the time of this report.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the monitoring report was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the monitoring report was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "projectId",
-        "reportDate",
-        "reportedByUserId",
-        "comments",
-        "observations",
-        "kpiValues",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Expense": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Expense",
-      "type": "object",
-      "description": "Records individual financial expenditures associated with a specific project for budget tracking.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Expense entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project this expense is associated with. (Relationship: Project 1:N Expense)"
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description or justification of what the expense was for."
-        },
-        "amount": {
-          "type": "number",
-          "description": "The monetary amount of the expense incurred."
-        },
-        "expenseDate": {
-          "type": "string",
-          "description": "The date when the expense was incurred or recorded.",
-          "format": "date"
-        },
-        "category": {
-          "type": "string",
-          "description": "The category to which this expense belongs (e.g., Salaries, Materials, Travel).",
-          "items": {
-            "type": "string"
-          }
-        },
-        "incurredByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who incurred or recorded this expense. (Relationship: UserProfile 1:N Expense)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the expense record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the expense record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "projectId",
-        "description",
-        "amount",
-        "expenseDate",
-        "category",
-        "incurredByUserId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Document": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Document",
-      "type": "object",
-      "description": "Stores metadata about uploaded documents (e.g., images, PDFs) that serve as evidence or support for projects, activities, or reports.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Document entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The original filename or a descriptive name given to the document."
-        },
-        "url": {
-          "type": "string",
-          "description": "The URL or path where the document content is stored (e.g., Firebase Storage URL).",
-          "format": "uri"
-        },
-        "fileType": {
-          "type": "string",
-          "description": "The MIME type of the document (e.g., 'image/jpeg', 'application/pdf')."
-        },
-        "uploadedByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who uploaded this document. (Relationship: UserProfile 1:N Document)"
-        },
-        "uploadDate": {
-          "type": "string",
-          "description": "Timestamp indicating when the document was uploaded.",
-          "format": "date-time"
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Optional reference to the Project this document is associated with. (Relationship: Project 1:N Document)"
-        },
-        "monitoringReportId": {
-          "type": "string",
-          "description": "Optional reference to the MonitoringReport this document serves as evidence for. (Relationship: MonitoringReport 1:N Document)"
-        },
-        "activityId": {
-          "type": "string",
-          "description": "Optional reference to the Activity this document is related to. (Relationship: Activity 1:N Document)"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "url",
-        "fileType",
-        "uploadedByUserId",
-        "uploadDate"
-      ]
+      "required": ["id", "organizationId", "name", "status", "createdAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password"]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/user_profiles/{userId}",
+        "path": "/organizations/{orgId}",
         "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores user profile information, including their application-wide role. Access is primarily path-based for the owner, with administrative access for users with 'admin' role. The 'role' field within the document is used for DBAC. The ID of the document MUST match the Firebase Authentication UID.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user, matching their Firebase Authentication UID."
-            }
-          ]
+          "entityName": "Organization",
+          "schema": { "$ref": "#/backend/entities/Organization" },
+          "description": "Organization tenant document."
         }
       },
       {
-        "path": "/donors/{donorId}",
+        "path": "/user_profiles/{userId}",
         "definition": {
-          "entityName": "Donor",
-          "schema": {
-            "$ref": "#/backend/entities/Donor"
-          },
-          "description": "Collection for managing donor organizations and individuals. Full CRUD access is granted to 'admin' users. 'M&E Officer' users will typically have read-only access.",
-          "params": [
-            {
-              "name": "donorId",
-              "description": "The unique identifier for a donor."
-            }
-          ]
+          "entityName": "UserProfile",
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "User profile document."
         }
       },
       {
         "path": "/projects/{projectId}",
         "definition": {
           "entityName": "Project",
-          "schema": {
-            "$ref": "#/backend/entities/Project"
-          },
-          "description": "Stores details for each project. Includes `createdByUserId` for initial ownership. For authorization independence, each document MUST include a `projectMembers` map (e.g., `{uid: 'role'}`) to manage collaborative access for all project participants (Admins, M&E Officers, etc.).",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for a project."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/activities/{activityId}",
-        "definition": {
-          "entityName": "Activity",
-          "schema": {
-            "$ref": "#/backend/entities/Activity"
-          },
-          "description": "Records specific tasks within a project. For authorization independence and QAPs, each document includes `projectId` and a denormalized `projectMembers` map copied from the associated Project document.",
-          "params": [
-            {
-              "name": "activityId",
-              "description": "The unique identifier for an activity."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/project_kpis/{kpiId}",
-        "definition": {
-          "entityName": "ProjectKPI",
-          "schema": {
-            "$ref": "#/backend/entities/ProjectKPI"
-          },
-          "description": "Defines Key Performance Indicators for projects. For authorization independence and QAPs, each document includes `projectId` and a denormalized `projectMembers` map copied from the associated Project document.",
-          "params": [
-            {
-              "name": "kpiId",
-              "description": "The unique identifier for a Project KPI."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/monitoring_reports/{reportId}",
-        "definition": {
-          "entityName": "MonitoringReport",
-          "schema": {
-            "$ref": "#/backend/entities/MonitoringReport"
-          },
-          "description": "Captures monitoring and evaluation data for projects. For authorization independence and QAPs, each document includes `projectId` and a denormalized `projectMembers` map copied from the associated Project document.",
-          "params": [
-            {
-              "name": "reportId",
-              "description": "The unique identifier for a monitoring report."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/expenses/{expenseId}",
-        "definition": {
-          "entityName": "Expense",
-          "schema": {
-            "$ref": "#/backend/entities/Expense"
-          },
-          "description": "Records financial expenditures for projects. For authorization independence and QAPs, each document includes `projectId` and a denormalized `projectMembers` map copied from the associated Project document.",
-          "params": [
-            {
-              "name": "expenseId",
-              "description": "The unique identifier for an expense record."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/documents/{documentId}",
-        "definition": {
-          "entityName": "Document",
-          "schema": {
-            "$ref": "#/backend/entities/Document"
-          },
-          "description": "Stores metadata for uploaded documents. If `projectId` is present in the document, it MUST also include a denormalized `projectMembers` map copied from the associated Project document for authorization independence and QAPs. Documents without a `projectId` are considered personal (owned by `uploadedByUserId`) or globally managed by admins.",
-          "params": [
-            {
-              "name": "documentId",
-              "description": "The unique identifier for a document."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Project" },
+          "description": "Project scoped by organizationId."
         }
       }
-    ],
-    "reasoning": "The recommended Firestore structure for NGOTrack prioritizes Authorization Independence and Query-Accurate Permissions (QAPs) by extensively leveraging denormalization and structural segregation. Instead of relying on hierarchical subcollections where security rules would need to `get()` parent documents, all project-related entities (Activities, ProjectKPIs, MonitoringReports, Expenses, Documents) are placed in top-level collections. This design eliminates expensive and security-challenging `get()` operations in security rules, making rules simpler, more robust, and easier to debug.\n\n**Authorization Independence:**\nTo achieve Authorization Independence (Mandate A), key authorization context is denormalized across documents:\n1.  **Project Membership:** Each `Project` document includes a `projectMembers` map (e.g., `{uid1: \"role\", uid2: \"role\"}`), defining who has access and their role within that specific project. This map acts as the single source of truth for project-level access.\n2.  **Child Document Denormalization:** For all documents belonging to a project (e.g., `Activity`, `ProjectKPI`, `MonitoringReport`, `Expense`, `Document`), the `projectId` and the entire `projectMembers` map from its parent `Project` are denormalized and stored directly within each child document. This allows security rules to evaluate access for any of these documents by only inspecting the document itself, without needing to retrieve the `Project` document.\n\n**Query-Accurate Permissions (QAPs):**\nThis denormalization strategy directly supports QAPs (Mandate D):\n1.  **List Operations:** Users can securely list projects they are members of by querying the `projects` collection using `where('projectMembers.' + request.auth.uid, 'in', ['admin', 'manager', 'viewer'])`. This allows for efficient and secure retrieval of only authorized projects.\n2.  **Child List Operations:** Similarly, users can list all `Activities`, `ProjectKPIs`, `MonitoringReports`, `Expenses`, or `Documents` related to projects they are authorized for by applying the same `where('projectMembers.' + request.auth.uid, 'in', [...])` clause to these respective collections. The presence of `projectId` in these documents also allows for efficient filtering by specific projects.\n3.  **User Profiles and Donors:** `user_profiles` are secured path-based (`/user_profiles/{userId}`), and `donors` are managed by admin roles. All these allow for clear and accurate queries without exposing unauthorized data.\n\n**Structural Segregation (Mandate B):**\nEach entity type (UserProfile, Donor, Project, Activity, ProjectKPI, MonitoringReport, Expense, Document) resides in its own top-level collection, ensuring that all documents within a collection share a homogeneous security posture. This simplifies security rules immensely as rules can be written once per collection, rather than having complex conditional logic based on document content or parent relationships.\n\n**Role-Based Access Control (DBAC):**\nUser roles are stored directly within each `user_profile` document, eliminating the need for custom claims and simplifying identity management to `request.auth.uid` and database lookups on the `user_profiles` collection. Admin users will have broad access based on their `role` field in their own `UserProfile`, allowing them to manage users, donors, and all projects.\n\nThis architecture ensures a highly secure, scalable, and debuggable system, adhering to all core design principles and strategy mandates."
+    ]
   }
 }

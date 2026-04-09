@@ -5,21 +5,10 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, ShieldCheck, BarChart4, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/firebase";
-import { signInAnonymously } from "firebase/auth";
+import Link from "next/link";
 
 export default function Home() {
   const router = useRouter();
-  const auth = useAuth();
-
-  const handleStart = async () => {
-    try {
-      await signInAnonymously(auth);
-      router.push("/dashboard");
-    } catch (error) {
-      router.push("/dashboard");
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col font-body">
@@ -31,8 +20,12 @@ export default function Home() {
           <h1 className="text-xl font-headline font-bold text-primary">NGOTrack</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={handleStart}>Login</Button>
-          <Button className="bg-primary hover:bg-primary/90" onClick={handleStart}>Get Started</Button>
+          <Button variant="ghost" asChild>
+            <Link href="/auth/login">Login</Link>
+          </Button>
+          <Button className="bg-primary hover:bg-primary/90" asChild>
+            <Link href="/auth/signup">Get Started</Link>
+          </Button>
         </div>
       </header>
 
@@ -46,8 +39,8 @@ export default function Home() {
               Empowering non-profits with real-time tracking, transparent budgeting, and comprehensive evaluation tools to drive community growth.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-              <Button size="lg" className="bg-primary text-lg px-8 py-6 rounded-xl" onClick={handleStart}>
-                Access Platform Dashboard
+              <Button size="lg" className="bg-primary text-lg px-8 py-6 rounded-xl" asChild>
+                <Link href="/auth/signup">Register Your Organization</Link>
               </Button>
               <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl">
                 Watch Demo
@@ -61,18 +54,18 @@ export default function Home() {
             {[
               {
                 icon: ShieldCheck,
-                title: "Transparent Tracking",
-                description: "Full visibility into every project phase, from planning to completion with secure audit trails."
+                title: "Organization Isolation",
+                description: "Secure multi-tenant architecture ensures your NGO data is private and strictly controlled."
               },
               {
                 icon: BarChart4,
-                title: "Real-time Analytics",
-                description: "Instantly visualize your impact with automated reporting and beautiful data dashboards."
+                title: "Impact Dashboards",
+                description: "Instantly visualize program performance across your entire organization with beautiful reports."
               },
               {
                 icon: Users2,
-                title: "Unified Teamwork",
-                description: "Collaborate seamlessly across roles with field officer updates and administrative oversight."
+                title: "Role-Based Access",
+                description: "Manage admins, officers, and staff with granular permissions tailored to NGO workflows."
               }
             ].map((feature, i) => (
               <div key={i} className="flex flex-col items-center text-center space-y-4 p-6 rounded-2xl border border-secondary/20 hover:border-primary/30 transition-colors bg-secondary/5">
@@ -83,18 +76,6 @@ export default function Home() {
                 <p className="text-muted-foreground">{feature.description}</p>
               </div>
             ))}
-          </div>
-        </section>
-
-        <section className="py-20 px-6 bg-muted/10">
-          <div className="max-w-5xl mx-auto text-center space-y-12">
-            <h2 className="text-3xl font-headline font-bold">Trusted by Local & International Organizations</h2>
-            <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale">
-              <div className="text-2xl font-bold">GLOBAL REACH</div>
-              <div className="text-2xl font-bold">COMMUNITY FIRST</div>
-              <div className="text-2xl font-bold">IMPACT HUB</div>
-              <div className="text-2xl font-bold">NGO ALLIANCE</div>
-            </div>
           </div>
         </section>
       </main>
@@ -108,38 +89,23 @@ export default function Home() {
               </div>
               <span className="font-headline font-bold text-lg text-primary">NGOTrack</span>
             </div>
-            <p className="text-sm text-muted-foreground">The ultimate platform for non-profit program management and impact evaluation.</p>
+            <p className="text-sm text-muted-foreground">The ultimate platform for multi-tenant non-profit program management.</p>
           </div>
           <div>
             <h4 className="font-bold mb-4">Product</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Features</li>
-              <li>Case Studies</li>
-              <li>Reporting Tools</li>
+              <li>Multi-tenancy</li>
               <li>Security</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold mb-4">Resources</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Documentation</li>
-              <li>Help Center</li>
-              <li>Best Practices</li>
-              <li>Community</li>
+              <li>Reporting</li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold mb-4">Connect</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Twitter</li>
               <li>LinkedIn</li>
-              <li>Contact Us</li>
               <li>Privacy Policy</li>
             </ul>
           </div>
-        </div>
-        <div className="max-w-6xl mx-auto mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} NGOTrack Platform. All rights reserved.
         </div>
       </footer>
     </div>
