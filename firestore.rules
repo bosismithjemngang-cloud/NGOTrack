@@ -8,15 +8,18 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/user_profiles/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
     function isMemberOfOrg(orgId) {
-      return isSignedIn() && getUserData().organizationId == orgId;
+      let data = getUserData();
+      return isSignedIn() && data != null && data.organizationId == orgId;
     }
 
     function isDocInMyOrg(docData) {
-      return isSignedIn() && getUserData().organizationId == docData.organizationId;
+      let data = getUserData();
+      return isSignedIn() && data != null && data.organizationId == docData.organizationId;
     }
 
     match /organizations/{orgId} {
@@ -26,11 +29,30 @@ service cloud.firestore {
     }
 
     match /user_profiles/{userId} {
+      // Allow get if it's the user's own profile, or they are in the same organization
+      // OR if they are an invited user checking their own invitation by email
+      allow get: if isSignedIn() && (
+        request.auth.uid == userId || 
+        isDocInMyOrg(resource.data) ||
+        (resource.data.status == 'invited' && request.auth.token.email == resource.data.email)
+      );
+
       // Allow listing profiles if they belong to the same organization
-      // Allow get if it's the user's own profile or they are in the same organization
-      allow list, get: if isSignedIn() && (request.auth.uid == userId || isDocInMyOrg(resource.data));
+      // OR if the user is searching for their own invitation (filtered by email)
+      allow list: if isSignedIn() && (
+        isDocInMyOrg(resource.data) ||
+        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
+      );
+
       allow create: if isSignedIn();
       allow update: if isSignedIn() && request.auth.uid == userId;
+
+      // Allow deleting an invitation record during the "claim" process
+      // OR allow admins to remove staff
+      allow delete: if isSignedIn() && (
+        (resource.data.status == 'invited' && request.auth.token.email == resource.data.email) ||
+        (getUserData().role == 'admin' && isDocInMyOrg(resource.data))
+      );
     }
 
     match /projects/{projectId} {

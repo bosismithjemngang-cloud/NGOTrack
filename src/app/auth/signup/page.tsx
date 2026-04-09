@@ -32,21 +32,22 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      // 1. Check if an invitation profile already exists for this email
-      const q = query(collection(db, "user_profiles"), where("email", "==", formData.email));
-      const querySnapshot = await getDocs(q);
-      const existingProfile = querySnapshot.docs[0]?.data();
-      const existingProfileId = querySnapshot.docs[0]?.id;
-
-      // 2. Create Auth User
+      // 1. Create Auth User first so we are authenticated for subsequent Firestore checks
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      if (existingProfile && existingProfileId) {
+      // 2. Check if an invitation profile already exists for this email
+      // Security rules now allow this list operation if filtering by your own email
+      const q = query(collection(db, "user_profiles"), where("email", "==", formData.email));
+      const querySnapshot = await getDocs(q);
+      const existingProfileDoc = querySnapshot.docs[0];
+      const existingProfile = existingProfileDoc?.data();
+
+      if (existingProfile && existingProfileDoc) {
         // SCENARIO A: User is joining an existing organization via invitation
         
         // Remove the temporary invitation record
-        await deleteDoc(doc(db, "user_profiles", existingProfileId));
+        await deleteDoc(doc(db, "user_profiles", existingProfileDoc.id));
 
         // Create the actual profile with the Auth UID
         await setDoc(doc(db, "user_profiles", user.uid), {
@@ -60,11 +61,14 @@ export default function SignupPage() {
       } else {
         // SCENARIO B: User is creating a new organization
         
+        // Ensure org name is provided
+        const finalOrgName = formData.orgName || `${formData.firstName}'s Organization`;
+
         // Create Organization
         const orgRef = doc(db, "organizations", crypto.randomUUID());
         await setDoc(orgRef, {
           id: orgRef.id,
-          name: formData.orgName,
+          name: finalOrgName,
           ownerId: user.uid,
           createdAt: new Date().toISOString(),
         });
@@ -106,17 +110,20 @@ export default function SignupPage() {
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name (Leave blank if joining an existing one)</Label>
+              <Label htmlFor="orgName">Organization Name</Label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input 
                   id="orgName" 
-                  placeholder="Acme Foundation" 
+                  placeholder="Acme Foundation (Ignore if invited)" 
                   className="pl-10"
                   value={formData.orgName}
                   onChange={(e) => setFormData({...formData, orgName: e.target.value})}
                 />
               </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                If you were invited by an admin, leave the Organization Name blank.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
