@@ -26,7 +26,9 @@ service cloud.firestore {
     }
 
     match /user_profiles/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || getUserData().organizationId == resource.data.organizationId);
+      // Allow listing profiles if they belong to the same organization
+      // Allow get if it's the user's own profile or they are in the same organization
+      allow list, get: if isSignedIn() && (request.auth.uid == userId || isDocInMyOrg(resource.data));
       allow create: if isSignedIn();
       allow update: if isSignedIn() && request.auth.uid == userId;
     }
