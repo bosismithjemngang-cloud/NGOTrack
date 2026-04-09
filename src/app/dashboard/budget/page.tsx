@@ -24,25 +24,43 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
+
+const PROJECT_ROLES = ['admin', 'manager', 'viewer', 'officer', 'staff', 'editor'];
 
 export default function BudgetPage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Fetch real-time expenses
+  // Fetch expenses - Filtered by membership for QAPs
   const expensesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "expenses"), orderBy("expenseDate", "desc"));
+    return query(
+      collection(db, "expenses"),
+      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+    );
   }, [db, user]);
-  const { data: expenses, isLoading } = useCollection(expensesQuery);
+  const { data: expensesData, isLoading } = useCollection(expensesQuery);
 
-  // Fetch real-time projects for budget context
+  // Fetch projects - Filtered by membership for QAPs
   const projectsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(db, "projects");
+    return query(
+      collection(db, "projects"),
+      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+    );
   }, [db, user]);
   const { data: projects } = useCollection(projectsQuery);
+
+  // Sort expenses in memory to avoid composite index requirements
+  const expenses = React.useMemo(() => {
+    if (!expensesData) return [];
+    return [...expensesData].sort((a, b) => {
+      const dateA = a.expenseDate ? new Date(a.expenseDate).getTime() : 0;
+      const dateB = b.expenseDate ? new Date(b.expenseDate).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [expensesData]);
 
   const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 0;
   const totalExpenditure = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
@@ -53,7 +71,7 @@ export default function BudgetPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-headline font-bold">Budget & Expenditure</h2>
-          <p className="text-muted-foreground">Track project funds and real-time spending.</p>
+          <p className="text-muted-foreground">Track project funds and real-time spending for your projects.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
@@ -75,7 +93,7 @@ export default function BudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Across {projects?.length || 0} active projects</p>
+            <p className="text-xs text-muted-foreground mt-1">Across {projects?.length || 0} projects you manage</p>
           </CardContent>
         </Card>
         <Card className="border-none bg-white">
@@ -86,7 +104,7 @@ export default function BudgetPage() {
           <CardContent>
             <div className="text-2xl font-bold">${totalExpenditure.toLocaleString()}</div>
             <p className="text-xs text-destructive mt-1">
-              {totalBudget > 0 ? Math.round((totalExpenditure / totalBudget) * 100) : 0}% of total budget
+              {totalBudget > 0 ? Math.round((totalExpenditure / totalBudget) * 100) : 0}% of your total budget
             </p>
           </CardContent>
         </Card>
@@ -107,7 +125,7 @@ export default function BudgetPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <CardTitle className="font-headline text-xl">Expense Log</CardTitle>
-              <CardDescription>Recent financial transactions across all projects</CardDescription>
+              <CardDescription>Recent financial transactions across your projects</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -125,7 +143,7 @@ export default function BudgetPage() {
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading expenses...</div>
           ) : expenses?.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">No expenses logged yet.</div>
+            <div className="p-12 text-center text-muted-foreground">No expenses logged for your projects yet.</div>
           ) : (
             <Table>
               <TableHeader>

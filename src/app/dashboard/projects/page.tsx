@@ -29,7 +29,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
+
+const PROJECT_ROLES = ['admin', 'manager', 'viewer', 'officer', 'staff', 'editor'];
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
@@ -38,7 +40,11 @@ export default function ProjectsPage() {
 
   const projectsRef = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(db, "projects");
+    // Filter by membership for Query-Accurate Permissions (QAPs)
+    return query(
+      collection(db, "projects"),
+      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+    );
   }, [db, user]);
   const { data: projects, isLoading } = useCollection(projectsRef);
 
@@ -161,7 +167,7 @@ export default function ProjectsPage() {
           ))}
           {filteredProjects.length === 0 && (
             <div className="col-span-full py-12 text-center bg-white rounded-lg border-2 border-dashed">
-              <p className="text-muted-foreground">No projects found. Add your first project to get started.</p>
+              <p className="text-muted-foreground">No projects found. You must be a project member to see details.</p>
             </div>
           )}
         </div>

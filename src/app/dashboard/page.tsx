@@ -34,7 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, limit, orderBy } from "firebase/firestore";
+import { collection, query, limit, where } from "firebase/firestore";
 
 const projectStatusData = [
   { name: "Completed", value: 12, color: "hsl(var(--primary))" },
@@ -51,45 +51,67 @@ const budgetData = [
   { month: "Jun", allocated: 55000, spent: 49000 },
 ];
 
+const PROJECT_ROLES = ['admin', 'manager', 'viewer', 'officer', 'staff', 'editor'];
+
 export default function DashboardPage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Recent activities query
+  // Recent activities query - Filtered by membership for QAPs
   const activitiesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "activities"), orderBy("createdAt", "desc"), limit(5));
+    return query(
+      collection(db, "activities"), 
+      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES),
+      limit(20) // Fetch more to sort in memory
+    );
   }, [db, user]);
-  const { data: activities, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
+  const { data: activitiesData, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
 
-  // Projects for stats
+  // Projects for stats - Filtered by membership for QAPs
   const projectsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(db, "projects");
+    return query(
+      collection(db, "projects"),
+      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+    );
   }, [db, user]);
   const { data: projects } = useCollection(projectsQuery);
 
-  // Expenses for stats
+  // Expenses for stats - Filtered by membership for QAPs
   const expensesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return collection(db, "expenses");
+    return query(
+      collection(db, "expenses"),
+      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+    );
   }, [db, user]);
   const { data: expenses } = useCollection(expensesQuery);
 
-  const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 190000;
-  const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 148500;
-  const utilizationRate = Math.round((totalSpent / (totalBudget || 1)) * 100);
+  // Sort activities in memory to avoid composite index requirements with dynamic UID fields
+  const activities = React.useMemo(() => {
+    if (!activitiesData) return [];
+    return [...activitiesData].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    }).slice(0, 5);
+  }, [activitiesData]);
+
+  const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 0;
+  const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
+  const utilizationRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
 
   const stats = [
     { 
-      label: "Total Projects", 
-      value: projects?.length.toString() || "25", 
+      label: "My Projects", 
+      value: projects?.length.toString() || "0", 
       icon: Briefcase, 
-      change: "+2 this month", 
+      change: "Active memberships", 
       trend: "up" 
     },
     { 
-      label: "Active Beneficiaries", 
+      label: "Beneficiaries", 
       value: "1,240", 
       icon: Users, 
       change: "+15% vs last qtr", 
@@ -99,8 +121,8 @@ export default function DashboardPage() {
       label: "Budget Utilization", 
       value: `${utilizationRate}%`, 
       icon: DollarSign, 
-      change: "-2% on efficiency", 
-      trend: "down" 
+      change: "On-track spending", 
+      trend: "up" 
     },
     { 
       label: "Completion Rate", 
@@ -243,7 +265,7 @@ export default function DashboardPage() {
               {isActivitiesLoading ? (
                 <p className="text-sm text-muted-foreground">Loading activities...</p>
               ) : activities?.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No recent activities recorded.</p>
+                <p className="text-sm text-muted-foreground">No recent activities recorded for your projects.</p>
               ) : (
                 activities?.map((activity, i) => (
                   <div key={activity.id} className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0">
