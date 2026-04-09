@@ -32,6 +32,8 @@ import {
   Cell
 } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const projectStatusData = [
   { name: "Completed", value: 12, color: "hsl(var(--primary))" },
