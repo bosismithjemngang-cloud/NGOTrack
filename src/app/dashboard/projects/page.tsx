@@ -8,8 +8,6 @@ import {
   Filter, 
   MoreVertical, 
   MapPin, 
-  Calendar, 
-  Target,
   ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,14 +28,18 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection } from "firebase/firestore";
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const db = useFirestore();
+  const { user } = useUser();
 
-  const projectsRef = useMemoFirebase(() => collection(db, "projects"), [db]);
+  const projectsRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "projects");
+  }, [db, user]);
   const { data: projects, isLoading } = useCollection(projectsRef);
 
   const filteredProjects = projects?.filter(p => 

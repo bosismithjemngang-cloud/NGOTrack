@@ -23,18 +23,25 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 
 export default function BudgetPage() {
   const db = useFirestore();
+  const { user } = useUser();
 
   // Fetch real-time expenses
-  const expensesQuery = useMemoFirebase(() => query(collection(db, "expenses"), orderBy("expenseDate", "desc")), [db]);
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(db, "expenses"), orderBy("expenseDate", "desc"));
+  }, [db, user]);
   const { data: expenses, isLoading } = useCollection(expensesQuery);
 
   // Fetch real-time projects for budget context
-  const projectsQuery = useMemoFirebase(() => collection(db, "projects"), [db]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "projects");
+  }, [db, user]);
   const { data: projects } = useCollection(projectsQuery);
 
   const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 0;

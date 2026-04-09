@@ -1,13 +1,25 @@
 
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, ShieldCheck, BarChart4, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/firebase";
+import { signInAnonymously } from "firebase/auth";
 
 export default function Home() {
   const router = useRouter();
+  const auth = useAuth();
+
+  const handleStart = async () => {
+    try {
+      await signInAnonymously(auth);
+      router.push("/dashboard");
+    } catch (error) {
+      router.push("/dashboard");
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col font-body">
@@ -19,8 +31,8 @@ export default function Home() {
           <h1 className="text-xl font-headline font-bold text-primary">NGOTrack</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.push("/dashboard")}>Login</Button>
-          <Button className="bg-primary hover:bg-primary/90" onClick={() => router.push("/dashboard")}>Get Started</Button>
+          <Button variant="ghost" onClick={handleStart}>Login</Button>
+          <Button className="bg-primary hover:bg-primary/90" onClick={handleStart}>Get Started</Button>
         </div>
       </header>
 
@@ -34,7 +46,7 @@ export default function Home() {
               Empowering non-profits with real-time tracking, transparent budgeting, and comprehensive evaluation tools to drive community growth.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-              <Button size="lg" className="bg-primary text-lg px-8 py-6 rounded-xl" onClick={() => router.push("/dashboard")}>
+              <Button size="lg" className="bg-primary text-lg px-8 py-6 rounded-xl" onClick={handleStart}>
                 Access Platform Dashboard
               </Button>
               <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl">
@@ -78,7 +90,6 @@ export default function Home() {
           <div className="max-w-5xl mx-auto text-center space-y-12">
             <h2 className="text-3xl font-headline font-bold">Trusted by Local & International Organizations</h2>
             <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale">
-              {/* Simplified brand representations */}
               <div className="text-2xl font-bold">GLOBAL REACH</div>
               <div className="text-2xl font-bold">COMMUNITY FIRST</div>
               <div className="text-2xl font-bold">IMPACT HUB</div>

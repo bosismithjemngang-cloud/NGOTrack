@@ -33,7 +33,7 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, limit, orderBy } from "firebase/firestore";
 
 const projectStatusData = [
@@ -53,19 +53,27 @@ const budgetData = [
 
 export default function DashboardPage() {
   const db = useFirestore();
+  const { user } = useUser();
 
   // Recent activities query
   const activitiesQuery = useMemoFirebase(() => {
+    if (!user) return null;
     return query(collection(db, "activities"), orderBy("createdAt", "desc"), limit(5));
-  }, [db]);
+  }, [db, user]);
   const { data: activities, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
 
   // Projects for stats
-  const projectsQuery = useMemoFirebase(() => collection(db, "projects"), [db]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "projects");
+  }, [db, user]);
   const { data: projects } = useCollection(projectsQuery);
 
   // Expenses for stats
-  const expensesQuery = useMemoFirebase(() => collection(db, "expenses"), [db]);
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(db, "expenses");
+  }, [db, user]);
   const { data: expenses } = useCollection(expensesQuery);
 
   const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 190000;

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useAuth } from "@/firebase";
-import { signOut } from "firebase/auth";
+import { signOut, signInAnonymously } from "firebase/auth";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -50,10 +50,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      signInAnonymously(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/");
   };
+
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -121,7 +135,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Button>
               <div className="flex items-center gap-3 pl-4 border-l">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium">{user?.displayName || user?.email || "Guest"}</p>
+                  <p className="text-sm font-medium">{user?.displayName || (user?.isAnonymous ? "Guest User" : user?.email) || "Guest"}</p>
                   <p className="text-xs text-muted-foreground">NGO Member</p>
                 </div>
                 <Avatar className="h-9 w-9 border border-primary/20">
