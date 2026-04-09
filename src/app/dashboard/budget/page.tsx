@@ -10,7 +10,7 @@ import {
   Download,
   Plus,
   Search
-} from "lucide-react";
+} from "lucide-center";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,33 +23,38 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
-
-const PROJECT_ROLES = ['admin', 'manager', 'viewer', 'officer', 'staff', 'editor'];
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { collection, query, where, doc } from "firebase/firestore";
 
 export default function BudgetPage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // Fetch expenses - Filtered by membership for QAPs
-  const expensesQuery = useMemoFirebase(() => {
+  // 1. Fetch User Profile for organizationId
+  const profileRef = useMemoFirebase(() => {
     if (!user) return null;
+    return doc(db, "user_profiles", user.uid);
+  }, [db, user]);
+  const { data: profile } = useDoc(profileRef);
+
+  // 2. Fetch expenses scoped by organizationId
+  const expensesQuery = useMemoFirebase(() => {
+    if (!profile?.organizationId) return null;
     return query(
       collection(db, "expenses"),
-      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+      where("organizationId", "==", profile.organizationId)
     );
-  }, [db, user]);
+  }, [db, profile]);
   const { data: expensesData, isLoading } = useCollection(expensesQuery);
 
-  // Fetch projects - Filtered by membership for QAPs
+  // 3. Fetch projects scoped by organizationId
   const projectsQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!profile?.organizationId) return null;
     return query(
       collection(db, "projects"),
-      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+      where("organizationId", "==", profile.organizationId)
     );
-  }, [db, user]);
+  }, [db, profile]);
   const { data: projects } = useCollection(projectsQuery);
 
   // Sort expenses in memory to avoid composite index requirements
@@ -71,7 +76,7 @@ export default function BudgetPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-headline font-bold">Budget & Expenditure</h2>
-          <p className="text-muted-foreground">Track project funds and real-time spending for your projects.</p>
+          <p className="text-muted-foreground">Track project funds and real-time spending for your organization.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
@@ -93,7 +98,7 @@ export default function BudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Across {projects?.length || 0} projects you manage</p>
+            <p className="text-xs text-muted-foreground mt-1">Across {projects?.length || 0} active projects</p>
           </CardContent>
         </Card>
         <Card className="border-none bg-white">
@@ -143,7 +148,7 @@ export default function BudgetPage() {
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading expenses...</div>
           ) : expenses?.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">No expenses logged for your projects yet.</div>
+            <div className="p-12 text-center text-muted-foreground">No expenses logged for your organization yet.</div>
           ) : (
             <Table>
               <TableHeader>

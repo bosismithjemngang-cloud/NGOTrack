@@ -28,24 +28,29 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
-
-const PROJECT_ROLES = ['admin', 'manager', 'viewer', 'officer', 'staff', 'editor'];
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { collection, query, where, doc } from "firebase/firestore";
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const db = useFirestore();
   const { user } = useUser();
 
-  const projectsRef = useMemoFirebase(() => {
+  // 1. Fetch User Profile to get organizationId
+  const profileRef = useMemoFirebase(() => {
     if (!user) return null;
-    // Filter by membership for Query-Accurate Permissions (QAPs)
+    return doc(db, "user_profiles", user.uid);
+  }, [db, user]);
+  const { data: profile } = useDoc(profileRef);
+
+  // 2. Fetch projects scoped by organizationId for Query-Accurate Permissions (QAPs)
+  const projectsRef = useMemoFirebase(() => {
+    if (!profile?.organizationId) return null;
     return query(
       collection(db, "projects"),
-      where(`projectMembers.${user.uid}`, 'in', PROJECT_ROLES)
+      where("organizationId", "==", profile.organizationId)
     );
-  }, [db, user]);
+  }, [db, profile]);
   const { data: projects, isLoading } = useCollection(projectsRef);
 
   const filteredProjects = projects?.filter(p => 
@@ -114,7 +119,7 @@ export default function ProjectsPage() {
                   </CardTitle>
                   <div className="flex items-center text-xs text-muted-foreground gap-1">
                     <MapPin className="h-3 w-3" />
-                    {project.location}
+                    {project.location || 'Location Pending'}
                   </div>
                 </div>
                 <DropdownMenu>
@@ -165,9 +170,9 @@ export default function ProjectsPage() {
               </CardFooter>
             </Card>
           ))}
-          {filteredProjects.length === 0 && (
+          {filteredProjects.length === 0 && !isLoading && (
             <div className="col-span-full py-12 text-center bg-white rounded-lg border-2 border-dashed">
-              <p className="text-muted-foreground">No projects found. You must be a project member to see details.</p>
+              <p className="text-muted-foreground">No projects found for your organization.</p>
             </div>
           )}
         </div>
