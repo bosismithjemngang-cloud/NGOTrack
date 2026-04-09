@@ -62,7 +62,14 @@ export default function DashboardPage() {
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch data scoped by organizationId
+  // 2. Fetch Organization details
+  const orgRef = useMemoFirebase(() => {
+    if (!profile?.organizationId) return null;
+    return doc(db, "organizations", profile.organizationId);
+  }, [db, profile?.organizationId]);
+  const { data: organization } = useDoc(orgRef);
+
+  // 3. Fetch data scoped by organizationId
   const activitiesQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -118,7 +125,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-headline font-bold text-foreground">Impact Overview</h2>
-          <p className="text-muted-foreground mt-1">Real-time tracking for {formData?.orgName || 'your organization'}.</p>
+          <p className="text-muted-foreground mt-1">Real-time tracking for {organization?.name || 'your organization'}.</p>
         </div>
         <div className="flex gap-2">
           <Card className="p-1 px-3 flex items-center gap-2 bg-secondary/10 border-secondary/20">
