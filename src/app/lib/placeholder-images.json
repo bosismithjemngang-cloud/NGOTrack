@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "community-health",
+      "description": "A community health clinic building",
+      "imageUrl": "https://picsum.photos/seed/ngo1/800/600",
+      "imageHint": "community health"
+    },
+    {
+      "id": "clean-water",
+      "description": "People accessing a new clean water well",
+      "imageUrl": "https://picsum.photos/seed/ngo2/800/600",
+      "imageHint": "clean water"
+    },
+    {
+      "id": "education-center",
+      "description": "Children studying in a new classroom",
+      "imageUrl": "https://picsum.photos/seed/ngo3/800/600",
+      "imageHint": "education children"
+    },
+    {
+      "id": "sustainable-farming",
+      "description": "Farmers working in a sustainable agricultural plot",
+      "imageUrl": "https://picsum.photos/seed/ngo4/800/600",
+      "imageHint": "sustainable farming"
+    }
+  ]
+}
