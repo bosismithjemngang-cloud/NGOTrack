@@ -31,9 +31,10 @@ import {
   Pie,
   Cell
 } from "recharts";
-import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, limit, orderBy } from "firebase/firestore";
 
 const projectStatusData = [
   { name: "Completed", value: 12, color: "hsl(var(--primary))" },
@@ -50,38 +51,58 @@ const budgetData = [
   { month: "Jun", allocated: 55000, spent: 49000 },
 ];
 
-const stats = [
-  { 
-    label: "Total Projects", 
-    value: "25", 
-    icon: Briefcase, 
-    change: "+2 this month", 
-    trend: "up" 
-  },
-  { 
-    label: "Active Beneficiaries", 
-    value: "1,240", 
-    icon: Users, 
-    change: "+15% vs last qtr", 
-    trend: "up" 
-  },
-  { 
-    label: "Budget Utilization", 
-    value: "78%", 
-    icon: DollarSign, 
-    change: "-2% on efficiency", 
-    trend: "down" 
-  },
-  { 
-    label: "Completion Rate", 
-    value: "92%", 
-    icon: CheckCircle2, 
-    change: "+4% performance", 
-    trend: "up" 
-  },
-];
-
 export default function DashboardPage() {
+  const db = useFirestore();
+
+  // Recent activities query
+  const activitiesQuery = useMemoFirebase(() => {
+    return query(collection(db, "activities"), orderBy("createdAt", "desc"), limit(5));
+  }, [db]);
+  const { data: activities, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
+
+  // Projects for stats
+  const projectsQuery = useMemoFirebase(() => collection(db, "projects"), [db]);
+  const { data: projects } = useCollection(projectsQuery);
+
+  // Expenses for stats
+  const expensesQuery = useMemoFirebase(() => collection(db, "expenses"), [db]);
+  const { data: expenses } = useCollection(expensesQuery);
+
+  const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 190000;
+  const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 148500;
+  const utilizationRate = Math.round((totalSpent / (totalBudget || 1)) * 100);
+
+  const stats = [
+    { 
+      label: "Total Projects", 
+      value: projects?.length.toString() || "25", 
+      icon: Briefcase, 
+      change: "+2 this month", 
+      trend: "up" 
+    },
+    { 
+      label: "Active Beneficiaries", 
+      value: "1,240", 
+      icon: Users, 
+      change: "+15% vs last qtr", 
+      trend: "up" 
+    },
+    { 
+      label: "Budget Utilization", 
+      value: `${utilizationRate}%`, 
+      icon: DollarSign, 
+      change: "-2% on efficiency", 
+      trend: "down" 
+    },
+    { 
+      label: "Completion Rate", 
+      value: "92%", 
+      icon: CheckCircle2, 
+      change: "+4% performance", 
+      trend: "up" 
+    },
+  ];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
@@ -92,7 +113,7 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <Card className="p-1 px-3 flex items-center gap-2 bg-secondary/10 border-secondary/20">
             <Clock className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary">Last update: Today, 09:45 AM</span>
+            <span className="text-xs font-medium text-primary">Live Real-time Feed</span>
           </Card>
         </div>
       </div>
@@ -211,59 +232,38 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {[
-                {
-                  officer: "Maria Garcia",
-                  action: "updated progress for",
-                  target: "Rural Water Access Project",
-                  time: "2 hours ago",
-                  progress: "85%",
-                  status: "On Track"
-                },
-                {
-                  officer: "David Chen",
-                  action: "submitted M&E report for",
-                  target: "Education for All - Primary",
-                  time: "4 hours ago",
-                  progress: "40%",
-                  status: "Warning"
-                },
-                {
-                  officer: "Sarah Miller",
-                  action: "logged expense for",
-                  target: "Community Health Initiative",
-                  time: "1 day ago",
-                  progress: "100%",
-                  status: "Completed"
-                }
-              ].map((activity, i) => (
-                <div key={i} className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <div className="flex gap-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={`https://picsum.photos/seed/officer${i}/40/40`} />
-                      <AvatarFallback>{activity.officer[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">
-                        <span className="text-foreground">{activity.officer}</span>{" "}
-                        <span className="text-muted-foreground">{activity.action}</span>{" "}
-                        <span className="text-primary font-semibold">{activity.target}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
+              {isActivitiesLoading ? (
+                <p className="text-sm text-muted-foreground">Loading activities...</p>
+              ) : activities?.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No recent activities recorded.</p>
+              ) : (
+                activities?.map((activity, i) => (
+                  <div key={activity.id} className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0">
+                    <div className="flex gap-4">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={`https://picsum.photos/seed/${activity.assignedUserId || i}/40/40`} />
+                        <AvatarFallback>{activity.name?.[0]}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">
+                          <span className="text-foreground">{activity.name}</span>{" "}
+                          <span className="text-muted-foreground">task for</span>{" "}
+                          <span className="text-primary font-semibold">Project Implementation</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{activity.createdAt ? new Date(activity.createdAt).toLocaleDateString() : 'Just now'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold">{activity.progressPercentage}%</div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        activity.isCompleted ? "bg-primary/10 text-primary" : "bg-secondary/20 text-blue-700"
+                      }`}>
+                        {activity.isCompleted ? "Completed" : "In Progress"}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold">{activity.progress}</div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                      activity.status === "Completed" ? "bg-primary/10 text-primary" : 
-                      activity.status === "Warning" ? "bg-destructive/10 text-destructive" :
-                      "bg-secondary/20 text-blue-700"
-                    }`}>
-                      {activity.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

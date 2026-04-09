@@ -3,7 +3,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -12,10 +12,8 @@ import {
   PieChart, 
   FileText, 
   Users, 
-  Settings,
   LogOut,
   Search,
-  Menu,
   Bell
 } from "lucide-react";
 import { 
@@ -33,6 +31,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUser, useAuth } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -46,6 +46,14 @@ const navItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push("/");
+  };
 
   return (
     <SidebarProvider>
@@ -85,7 +93,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SidebarFooter className="p-4 border-t border-border">
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton className="flex items-center gap-3 text-muted-foreground hover:text-destructive">
+                <SidebarMenuButton 
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 text-muted-foreground hover:text-destructive w-full"
+                >
                   <LogOut className="h-5 w-5" />
                   <span>Logout</span>
                 </SidebarMenuButton>
@@ -110,12 +121,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Button>
               <div className="flex items-center gap-3 pl-4 border-l">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium">Alex Johnson</p>
-                  <p className="text-xs text-muted-foreground">Administrator</p>
+                  <p className="text-sm font-medium">{user?.displayName || user?.email || "Guest"}</p>
+                  <p className="text-xs text-muted-foreground">NGO Member</p>
                 </div>
                 <Avatar className="h-9 w-9 border border-primary/20">
-                  <AvatarImage src="https://picsum.photos/seed/user1/40/40" />
-                  <AvatarFallback>AJ</AvatarFallback>
+                  <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid || '1'}/40/40`} />
+                  <AvatarFallback>{(user?.displayName?.[0] || user?.email?.[0] || "U").toUpperCase()}</AvatarFallback>
                 </Avatar>
               </div>
             </div>

@@ -23,56 +23,24 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-const expenses = [
-  {
-    id: "e1",
-    date: "2023-11-15",
-    description: "Purchase of high-yield maize seeds",
-    category: "Program Materials",
-    project: "Smallholder Farmer Support",
-    amount: 12500,
-    status: "Approved"
-  },
-  {
-    id: "e2",
-    date: "2023-11-12",
-    description: "Fuel for mobile health units",
-    category: "Logistics",
-    project: "Mobile Health Units Expansion",
-    amount: 450,
-    status: "Approved"
-  },
-  {
-    id: "e3",
-    date: "2023-11-10",
-    description: "Health worker stipend - Oct",
-    category: "Human Resources",
-    project: "Mobile Health Units Expansion",
-    amount: 3200,
-    status: "Pending"
-  },
-  {
-    id: "e4",
-    date: "2023-11-08",
-    description: "Construction materials - Well #4",
-    category: "Infrastructure",
-    project: "Clean Water Access Initiative",
-    amount: 8700,
-    status: "Approved"
-  },
-  {
-    id: "e5",
-    date: "2023-11-05",
-    description: "Printing vocational training manuals",
-    category: "Education",
-    project: "Youth Vocational Training",
-    amount: 1200,
-    status: "Approved"
-  }
-];
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from "firebase/firestore";
 
 export default function BudgetPage() {
+  const db = useFirestore();
+
+  // Fetch real-time expenses
+  const expensesQuery = useMemoFirebase(() => query(collection(db, "expenses"), orderBy("expenseDate", "desc")), [db]);
+  const { data: expenses, isLoading } = useCollection(expensesQuery);
+
+  // Fetch real-time projects for budget context
+  const projectsQuery = useMemoFirebase(() => collection(db, "projects"), [db]);
+  const { data: projects } = useCollection(projectsQuery);
+
+  const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 0;
+  const totalExpenditure = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
+  const remainingBalance = totalBudget - totalExpenditure;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -99,8 +67,8 @@ export default function BudgetPage() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$190,000</div>
-            <p className="text-xs text-muted-foreground mt-1">Across 4 active projects</p>
+            <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Across {projects?.length || 0} active projects</p>
           </CardContent>
         </Card>
         <Card className="border-none bg-white">
@@ -109,8 +77,10 @@ export default function BudgetPage() {
             <ArrowUpCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$148,500</div>
-            <p className="text-xs text-destructive mt-1">78.1% of total budget</p>
+            <div className="text-2xl font-bold">${totalExpenditure.toLocaleString()}</div>
+            <p className="text-xs text-destructive mt-1">
+              {totalBudget > 0 ? Math.round((totalExpenditure / totalBudget) * 100) : 0}% of total budget
+            </p>
           </CardContent>
         </Card>
         <Card className="border-none bg-white">
@@ -119,7 +89,7 @@ export default function BudgetPage() {
             <ArrowDownCircle className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$41,500</div>
+            <div className="text-2xl font-bold">${remainingBalance.toLocaleString()}</div>
             <p className="text-xs text-primary mt-1">Available for allocation</p>
           </CardContent>
         </Card>
@@ -145,40 +115,38 @@ export default function BudgetPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/5">
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {expenses.map((expense) => (
-                <TableRow key={expense.id} className="hover:bg-muted/5">
-                  <TableCell className="font-medium">{expense.date}</TableCell>
-                  <TableCell>{expense.description}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-normal">
-                      {expense.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{expense.project}</TableCell>
-                  <TableCell className="text-right font-semibold">${expense.amount.toLocaleString()}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge className={
-                      expense.status === "Approved" ? "bg-primary/10 text-primary border-primary/20" : "bg-warning/10 text-orange-600 border-orange-200"
-                    }>
-                      {expense.status}
-                    </Badge>
-                  </TableCell>
+          {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground">Loading expenses...</div>
+          ) : expenses?.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">No expenses logged yet.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/5">
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {expenses?.map((expense) => (
+                  <TableRow key={expense.id} className="hover:bg-muted/5">
+                    <TableCell className="font-medium">
+                      {expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString() : 'N/A'}
+                    </TableCell>
+                    <TableCell>{expense.description}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="font-normal">
+                        {expense.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">${expense.amount.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
