@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label";
 import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 
 export default function SignupPage() {
@@ -31,29 +32,55 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      // 1. Create Auth User
+      // 1. Check if an invitation profile already exists for this email
+      const q = query(collection(db, "user_profiles"), where("email", "==", formData.email));
+      const querySnapshot = await getDocs(q);
+      const existingProfile = querySnapshot.docs[0]?.data();
+      const existingProfileId = querySnapshot.docs[0]?.id;
+
+      // 2. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // 2. Create Organization
-      const orgRef = doc(db, "organizations", crypto.randomUUID());
-      await setDoc(orgRef, {
-        id: orgRef.id,
-        name: formData.orgName,
-        ownerId: user.uid,
-        createdAt: new Date().toISOString(),
-      });
+      if (existingProfile && existingProfileId) {
+        // SCENARIO A: User is joining an existing organization via invitation
+        
+        // Remove the temporary invitation record
+        await deleteDoc(doc(db, "user_profiles", existingProfileId));
 
-      // 3. Create User Profile
-      await setDoc(doc(db, "user_profiles", user.uid), {
-        id: user.uid,
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        organizationId: orgRef.id,
-        role: "admin",
-        createdAt: new Date().toISOString(),
-      });
+        // Create the actual profile with the Auth UID
+        await setDoc(doc(db, "user_profiles", user.uid), {
+          ...existingProfile,
+          id: user.uid,
+          firstName: formData.firstName || existingProfile.firstName,
+          lastName: formData.lastName || existingProfile.lastName,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        // SCENARIO B: User is creating a new organization
+        
+        // Create Organization
+        const orgRef = doc(db, "organizations", crypto.randomUUID());
+        await setDoc(orgRef, {
+          id: orgRef.id,
+          name: formData.orgName,
+          ownerId: user.uid,
+          createdAt: new Date().toISOString(),
+        });
+
+        // Create User Profile
+        await setDoc(doc(db, "user_profiles", user.uid), {
+          id: user.uid,
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          organizationId: orgRef.id,
+          role: "admin",
+          status: "active",
+          createdAt: new Date().toISOString(),
+        });
+      }
 
       router.push("/dashboard");
     } catch (error: any) {
@@ -73,13 +100,13 @@ export default function SignupPage() {
               <Briefcase className="h-7 w-7" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-headline font-bold">Register Organization</CardTitle>
-          <CardDescription>Get started with NGOTrack impact management</CardDescription>
+          <CardTitle className="text-2xl font-headline font-bold">Join NGOTrack</CardTitle>
+          <CardDescription>Register your organization or join an existing one</CardDescription>
         </CardHeader>
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name</Label>
+              <Label htmlFor="orgName">Organization Name (Leave blank if joining an existing one)</Label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -88,7 +115,6 @@ export default function SignupPage() {
                   className="pl-10"
                   value={formData.orgName}
                   onChange={(e) => setFormData({...formData, orgName: e.target.value})}
-                  required 
                 />
               </div>
             </div>
@@ -99,7 +125,7 @@ export default function SignupPage() {
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     id="firstName" 
-                    placeholder="Jane" 
+                    placeholder="John" 
                     className="pl-10"
                     value={formData.firstName}
                     onChange={(e) => setFormData({...formData, firstName: e.target.value})}
@@ -112,10 +138,10 @@ export default function SignupPage() {
                 <Input 
                   id="lastName" 
                   placeholder="Doe" 
+                  className="w-full"
                   value={formData.lastName}
                   onChange={(e) => setFormData({...formData, lastName: e.target.value})}
                   required 
-                  className="w-full"
                 />
               </div>
             </div>
@@ -126,7 +152,7 @@ export default function SignupPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="jane@example.com" 
+                  placeholder="john@example.com" 
                   className="pl-10"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -149,7 +175,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -159,7 +185,7 @@ export default function SignupPage() {
           <CardFooter className="flex flex-col gap-4">
             <Button className="w-full" type="submit" disabled={isLoading}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Create Account
+              Sign Up
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
