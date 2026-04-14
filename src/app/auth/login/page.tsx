@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,17 +20,55 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const auth = useAuth();
+  const db = useFirestore();
+  const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Handle "Invited but already had an Auth account" scenario
+      // Check if user has a profile doc with their UID.
+      const profileQuery = query(collection(db, "user_profiles"), where("id", "==", user.uid));
+      const profileSnap = await getDocs(profileQuery);
+
+      if (profileSnap.empty) {
+        // If no UID profile exists, search for an invited profile by email
+        const inviteQuery = query(collection(db, "user_profiles"), where("email", "==", email));
+        const inviteSnap = await getDocs(inviteQuery);
+
+        if (!inviteSnap.empty) {
+          const inviteDoc = inviteSnap.docs[0];
+          const inviteData = inviteDoc.data();
+
+          // Claim the invitation: Delete the old doc (id was random UUID) and create a new one with user UID
+          await deleteDoc(doc(db, "user_profiles", inviteDoc.id));
+          await setDoc(doc(db, "user_profiles", user.uid), {
+            ...inviteData,
+            id: user.uid,
+            status: "active",
+            createdAt: new Date().toISOString(),
+          });
+          
+          toast({
+            title: "Welcome aboard",
+            description: "Your organization membership has been activated.",
+          });
+        }
+      }
+
       router.push("/dashboard");
     } catch (error: any) {
       console.error(error);
-      alert(error.message);
+      toast({
+        variant: "destructive",
+        title: "Login Error",
+        description: error.message,
+      });
     } finally {
       setIsLoading(false);
     }

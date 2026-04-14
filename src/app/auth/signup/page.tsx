@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -12,6 +11,7 @@ import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +26,7 @@ export default function SignupPage() {
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
+  const { toast } = useToast();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +38,6 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       // 2. Check if an invitation profile already exists for this email
-      // Security rules now allow this list operation if filtering by your own email
       const q = query(collection(db, "user_profiles"), where("email", "==", formData.email));
       const querySnapshot = await getDocs(q);
       const existingProfileDoc = querySnapshot.docs[0];
@@ -45,11 +45,8 @@ export default function SignupPage() {
 
       if (existingProfile && existingProfileDoc) {
         // SCENARIO A: User is joining an existing organization via invitation
-        
-        // Remove the temporary invitation record
         await deleteDoc(doc(db, "user_profiles", existingProfileDoc.id));
 
-        // Create the actual profile with the Auth UID
         await setDoc(doc(db, "user_profiles", user.uid), {
           ...existingProfile,
           id: user.uid,
@@ -60,11 +57,8 @@ export default function SignupPage() {
         });
       } else {
         // SCENARIO B: User is creating a new organization
-        
-        // Ensure org name is provided
         const finalOrgName = formData.orgName || `${formData.firstName}'s Organization`;
 
-        // Create Organization
         const orgRef = doc(db, "organizations", crypto.randomUUID());
         await setDoc(orgRef, {
           id: orgRef.id,
@@ -73,7 +67,6 @@ export default function SignupPage() {
           createdAt: new Date().toISOString(),
         });
 
-        // Create User Profile
         await setDoc(doc(db, "user_profiles", user.uid), {
           id: user.uid,
           email: formData.email,
@@ -89,7 +82,15 @@ export default function SignupPage() {
       router.push("/dashboard");
     } catch (error: any) {
       console.error(error);
-      alert(error.message);
+      let errorMessage = error.message;
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email is already registered. Please log in instead.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Signup Error",
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
