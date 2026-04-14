@@ -12,6 +12,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -38,8 +40,16 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       // 2. Check if an invitation profile already exists for this email
+      // Security rules allow listing profiles filtered by own email
       const q = query(collection(db, "user_profiles"), where("email", "==", formData.email));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(q).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'user_profiles',
+          operation: 'list'
+        }));
+        throw err;
+      });
+      
       const existingProfileDoc = querySnapshot.docs[0];
       const existingProfile = existingProfileDoc?.data();
 
@@ -81,7 +91,6 @@ export default function SignupPage() {
 
       router.push("/dashboard");
     } catch (error: any) {
-      console.error(error);
       let errorMessage = error.message;
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email is already registered. Please log in instead.";

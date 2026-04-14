@@ -9,9 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label";
 import { useAuth, useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -31,21 +33,33 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Handle "Invited but already had an Auth account" scenario
-      // Check if user has a profile doc with their UID.
-      const profileQuery = query(collection(db, "user_profiles"), where("id", "==", user.uid));
-      const profileSnap = await getDocs(profileQuery);
+      // 1. Check for an active profile directly by UID
+      const profileRef = doc(db, "user_profiles", user.uid);
+      const profileSnap = await getDoc(profileRef).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: profileRef.path,
+          operation: 'get'
+        }));
+        throw err;
+      });
 
-      if (profileSnap.empty) {
-        // If no UID profile exists, search for an invited profile by email
+      if (!profileSnap.exists()) {
+        // 2. If no UID profile exists, search for an invited profile by email
+        // Security rules allow listing if filtering by own email
         const inviteQuery = query(collection(db, "user_profiles"), where("email", "==", email));
-        const inviteSnap = await getDocs(inviteQuery);
+        const inviteSnap = await getDocs(inviteQuery).catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'user_profiles',
+            operation: 'list'
+          }));
+          throw err;
+        });
 
         if (!inviteSnap.empty) {
           const inviteDoc = inviteSnap.docs[0];
           const inviteData = inviteDoc.data();
 
-          // Claim the invitation: Delete the old doc (id was random UUID) and create a new one with user UID
+          // Claim the invitation: Delete the old doc and create a new one with user UID
           await deleteDoc(doc(db, "user_profiles", inviteDoc.id));
           await setDoc(doc(db, "user_profiles", user.uid), {
             ...inviteData,
@@ -63,7 +77,6 @@ export default function LoginPage() {
 
       router.push("/dashboard");
     } catch (error: any) {
-      console.error(error);
       toast({
         variant: "destructive",
         title: "Login Error",
