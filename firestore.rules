@@ -24,7 +24,7 @@ service cloud.firestore {
 
     match /organizations/{orgId} {
       allow get: if isMemberOfOrg(orgId);
-      allow create: if isSignedIn(); // Allow creator to set up org
+      allow create: if isSignedIn();
       allow update: if isMemberOfOrg(orgId) && getUserData().role == 'admin';
     }
 
@@ -54,6 +54,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && isDocInMyOrg(request.resource.data);
       allow update: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
       allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && getUserData().role == 'admin';
+      
+      match /milestones/{id} {
+        allow list, get: if isSignedIn();
+        allow create, update, delete: if isSignedIn() && (getUserData().role in ['admin', 'manager']);
+      }
     }
 
     match /activities/{id} {

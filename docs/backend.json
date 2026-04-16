@@ -49,6 +49,22 @@
       },
       "required": ["id", "organizationId", "name", "status", "createdAt"]
     },
+    "Milestone": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Milestone",
+      "type": "object",
+      "description": "A specific goal or phase within a project.",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "completed": { "type": "boolean" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "title", "completed"]
+    },
     "Activity": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Activity",
@@ -125,6 +141,14 @@
           "entityName": "Project",
           "schema": { "$ref": "#/backend/entities/Project" },
           "description": "Project scoped by organizationId."
+        }
+      },
+      {
+        "path": "/projects/{projectId}/milestones/{milestoneId}",
+        "definition": {
+          "entityName": "Milestone",
+          "schema": { "$ref": "#/backend/entities/Milestone" },
+          "description": "Project milestone."
         }
       },
       {
