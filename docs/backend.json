@@ -27,23 +27,10 @@
         "lastName": { "type": "string" },
         "organizationId": { "type": "string", "description": "The tenant ID this user belongs to." },
         "role": { "type": "string", "enum": ["admin", "manager", "officer", "staff"] },
+        "status": { "type": "string", "enum": ["active", "invited"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "email", "firstName", "lastName", "organizationId", "role", "createdAt"]
-    },
-    "Donor": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Donor",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "organizationId": { "type": "string" },
-        "name": { "type": "string" },
-        "contactPerson": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "organizationId", "name", "createdAt"]
     },
     "Project": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -54,12 +41,45 @@
         "organizationId": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
+        "location": { "type": "string" },
         "status": { "type": "string" },
         "budget": { "type": "number" },
-        "projectMembers": { "type": "object", "description": "Map of user IDs to roles within this project." },
+        "progress": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "organizationId", "name", "status", "createdAt"]
+    },
+    "Activity": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Activity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "progressPercentage": { "type": "number" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "organizationId", "name", "progressPercentage", "createdAt"]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "expenseDate": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "organizationId", "amount", "category", "expenseDate", "createdAt"]
     }
   },
   "auth": {
@@ -89,6 +109,22 @@
           "entityName": "Project",
           "schema": { "$ref": "#/backend/entities/Project" },
           "description": "Project scoped by organizationId."
+        }
+      },
+      {
+        "path": "/activities/{activityId}",
+        "definition": {
+          "entityName": "Activity",
+          "schema": { "$ref": "#/backend/entities/Activity" },
+          "description": "Activity log entry."
+        }
+      },
+      {
+        "path": "/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": { "$ref": "#/backend/entities/Expense" },
+          "description": "Expense record."
         }
       }
     ]
