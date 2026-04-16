@@ -11,7 +11,9 @@ import {
   ArrowRight,
   Trash2,
   Loader2,
-  Edit3
+  Edit3,
+  User,
+  LayoutGrid
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +50,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
@@ -58,6 +61,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
   
   const db = useFirestore();
   const { user } = useUser();
@@ -81,10 +85,20 @@ export default function ProjectsPage() {
   }, [db, profile]);
   const { data: projects, isLoading } = useCollection(projectsRef);
 
-  const filteredProjects = projects?.filter(p => 
-    p.name?.toLowerCase().includes(search.toLowerCase()) || 
-    p.location?.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  const filteredProjects = React.useMemo(() => {
+    if (!projects) return [];
+    
+    let filtered = projects.filter(p => 
+      p.name?.toLowerCase().includes(search.toLowerCase()) || 
+      p.location?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (activeTab === "assigned") {
+      filtered = filtered.filter(p => p.assignedStaffIds?.includes(user?.uid));
+    }
+
+    return filtered;
+  }, [projects, search, activeTab, user?.uid]);
 
   const handleCreateProject = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -100,6 +114,7 @@ export default function ProjectsPage() {
       budget: Number(formData.get("budget")),
       status: formData.get("status") as string,
       progress: 0,
+      assignedStaffIds: [user?.uid], // Creator is assigned by default
       organizationId: profile.organizationId,
       createdAt: new Date().toISOString(),
     };
@@ -194,8 +209,21 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
-        <div className="relative flex-1">
+      <div className="flex flex-col md:flex-row items-center gap-4 bg-white p-4 rounded-lg shadow-sm border">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
+          <TabsList className="grid grid-cols-2 w-[240px]">
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <LayoutGrid className="h-3.5 w-3.5" />
+              All
+            </TabsTrigger>
+            <TabsTrigger value="assigned" className="flex items-center gap-2">
+              <User className="h-3.5 w-3.5" />
+              My Work
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search projects by name or location..." 
@@ -204,9 +232,9 @@ export default function ProjectsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" className="flex items-center gap-2 shrink-0">
           <Filter className="h-4 w-4" />
-          Filter
+          More Filters
         </Button>
       </div>
 
@@ -226,13 +254,20 @@ export default function ProjectsPage() {
                   alt={project.name}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
-                <Badge className={`absolute top-4 right-4 ${
-                  project.status === "Completed" ? "bg-primary" : 
-                  project.status === "Active" ? "bg-secondary text-blue-900" : 
-                  "bg-muted text-foreground"
-                }`}>
-                  {project.status}
-                </Badge>
+                <div className="absolute top-4 left-4 flex gap-2">
+                   <Badge className={`${
+                    project.status === "Completed" ? "bg-primary" : 
+                    project.status === "Active" ? "bg-secondary text-blue-900" : 
+                    "bg-muted text-foreground"
+                  }`}>
+                    {project.status}
+                  </Badge>
+                  {project.assignedStaffIds?.includes(user?.uid) && (
+                    <Badge variant="outline" className="bg-white/90 text-primary border-primary backdrop-blur-sm">
+                      Assigned to me
+                    </Badge>
+                  )}
+                </div>
               </div>
               <CardHeader className="flex flex-row items-start justify-between pb-2">
                 <div className="space-y-1">
@@ -252,8 +287,10 @@ export default function ProjectsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Edit3 className="h-4 w-4 mr-2" /> Edit Details
+                      <DropdownMenuItem className="cursor-pointer" asChild>
+                         <Link href={`/dashboard/projects/${project.id}`}>
+                           <Edit3 className="h-4 w-4 mr-2" /> Manage Project
+                         </Link>
                       </DropdownMenuItem>
                       {isAdmin && (
                         <DropdownMenuItem 
@@ -285,9 +322,9 @@ export default function ProjectsPage() {
                       <p className="text-sm font-semibold">${(project.budget || 0).toLocaleString()}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Created</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Team</p>
                       <p className="text-sm font-semibold">
-                        {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
+                        {project.assignedStaffIds?.length || 0} Members
                       </p>
                     </div>
                   </div>
@@ -305,7 +342,11 @@ export default function ProjectsPage() {
           ))}
           {filteredProjects.length === 0 && !isLoading && (
             <div className="col-span-full py-12 text-center bg-white rounded-lg border-2 border-dashed">
-              <p className="text-muted-foreground">No projects found for your organization.</p>
+              <p className="text-muted-foreground">
+                {activeTab === "assigned" 
+                  ? "You are not currently assigned to any projects." 
+                  : "No projects found for your organization."}
+              </p>
               {isAdminOrManager && (
                 <Button variant="link" onClick={() => setIsCreateDialogOpen(true)}>Create your first project</Button>
               )}

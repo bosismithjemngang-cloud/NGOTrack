@@ -45,6 +45,11 @@
         "status": { "type": "string" },
         "budget": { "type": "number" },
         "progress": { "type": "number" },
+        "assignedStaffIds": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "UIDs of staff members assigned to this project."
+        },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "organizationId", "name", "status", "createdAt"]

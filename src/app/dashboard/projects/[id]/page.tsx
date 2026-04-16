@@ -17,7 +17,10 @@ import {
   AlertTriangle,
   Target,
   Circle,
-  CalendarDays
+  CalendarDays,
+  Users,
+  UserPlus,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDoc, useFirestore, useMemoFirebase, useUser, useCollection } from "@/firebase";
-import { doc, collection, query, where, orderBy } from "firebase/firestore";
+import { doc, collection, query, where, orderBy, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -99,6 +102,16 @@ export default function ProjectDetailPage() {
     );
   }, [db, id, profile]);
   const { data: expensesData } = useCollection(expensesQuery);
+
+  // 6. Fetch All Staff for Assignments
+  const staffQuery = useMemoFirebase(() => {
+    if (!profile?.organizationId) return null;
+    return query(
+      collection(db, "user_profiles"),
+      where("organizationId", "==", profile.organizationId)
+    );
+  }, [db, profile]);
+  const { data: allStaff } = useCollection(staffQuery);
 
   // Memoized lists
   const milestones = React.useMemo(() => {
@@ -206,30 +219,20 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleLogExpense = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!profile?.organizationId || !id) return;
+  const handleAssignStaff = (staffId: string) => {
+    if (!id || !canManage) return;
+    updateDoc(doc(db, "projects", id as string), {
+      assignedStaffIds: arrayUnion(staffId)
+    });
+    toast({ title: "Staff Assigned", description: "Team member added to the project." });
+  };
 
-    setIsSubmitting(true);
-    const formData = new FormData(e.currentTarget);
-    
-    const newExpense = {
-      projectId: id as string,
-      organizationId: profile.organizationId,
-      amount: Number(formData.get("amount")),
-      category: formData.get("category") as string,
-      description: formData.get("description") as string,
-      expenseDate: formData.get("date") as string,
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      addDocumentNonBlocking(collection(db, "expenses"), newExpense);
-      setIsExpenseDialogOpen(false);
-      toast({ title: "Expense Logged", description: "Financial records updated." });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleRemoveStaff = (staffId: string) => {
+    if (!id || !canManage) return;
+    updateDoc(doc(db, "projects", id as string), {
+      assignedStaffIds: arrayRemove(staffId)
+    });
+    toast({ title: "Staff Removed", description: "Team member removed from the project." });
   };
 
   if (isProjectLoading) {
@@ -250,6 +253,9 @@ export default function ProjectDetailPage() {
       </div>
     );
   }
+
+  const assignedStaff = allStaff?.filter(s => project.assignedStaffIds?.includes(s.id)) || [];
+  const unassignedStaff = allStaff?.filter(s => !project.assignedStaffIds?.includes(s.id)) || [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -396,6 +402,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="activities">Activity Log</TabsTrigger>
           <TabsTrigger value="financials">Financials</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="overview">Info</TabsTrigger>
         </TabsList>
 
@@ -535,6 +542,84 @@ export default function ProjectDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="team">
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Assigned Staff
+                </CardTitle>
+                <CardDescription>Members responsible for this project's implementation.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {assignedStaff.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No staff assigned yet.</p>
+                  ) : (
+                    assignedStaff.map(staff => (
+                      <div key={staff.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={`https://picsum.photos/seed/${staff.id}/40/40`} />
+                            <AvatarFallback>{staff.firstName[0]}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{staff.firstName} {staff.lastName}</p>
+                            <p className="text-[10px] text-muted-foreground capitalize">{staff.role}</p>
+                          </div>
+                        </div>
+                        {canManage && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveStaff(staff.id)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {canManage && (
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <UserPlus className="h-5 w-5 text-primary" />
+                    Available Team
+                  </CardTitle>
+                  <CardDescription>Assign additional members to this initiative.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {unassignedStaff.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">All organization staff are assigned.</p>
+                    ) : (
+                      unassignedStaff.map(staff => (
+                        <div key={staff.id} className="flex items-center justify-between p-3 border border-dashed rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={`https://picsum.photos/seed/${staff.id}/40/40`} />
+                              <AvatarFallback>{staff.firstName[0]}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{staff.firstName} {staff.lastName}</p>
+                              <p className="text-[10px] text-muted-foreground capitalize">{staff.role}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => handleAssignStaff(staff.id)}>
+                            Assign
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="overview">
