@@ -62,13 +62,14 @@
       "properties": {
         "id": { "type": "string" },
         "projectId": { "type": "string" },
+        "organizationId": { "type": "string" },
         "title": { "type": "string" },
         "description": { "type": "string" },
         "dueDate": { "type": "string", "format": "date" },
         "completed": { "type": "boolean" },
         "completedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "projectId", "title", "completed"]
+      "required": ["id", "projectId", "organizationId", "title", "completed"]
     },
     "Activity": {
       "$schema": "http://json-schema.org/draft-07/schema#",

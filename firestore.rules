@@ -50,16 +50,15 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      // Allow access if the user's org matches the project's org
       allow get, list: if isSignedIn() && isDocInMyOrg(resource.data);
       allow create: if isSignedIn() && isDocInMyOrg(request.resource.data);
       allow update: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
       allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && getUserData().role == 'admin';
       
       match /milestones/{id} {
-        // Correctly scope milestone list/get by checking the parent project's organization
-        allow list, get: if isSignedIn() && isMemberOfOrg(get(/databases/$(database)/documents/projects/$(projectId)).data.organizationId);
-        allow create, update, delete: if isSignedIn() && (getUserData().role in ['admin', 'manager']);
+        allow list, get: if isSignedIn() && isDocInMyOrg(resource.data);
+        allow create: if isSignedIn() && isDocInMyOrg(request.resource.data) && (getUserData().role in ['admin', 'manager']);
+        allow update, delete: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
       }
     }
 

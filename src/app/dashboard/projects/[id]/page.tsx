@@ -60,28 +60,24 @@ export default function ProjectDetailPage() {
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. Fetch User Profile
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "user_profiles", user.uid);
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Project
   const projectRef = useMemoFirebase(() => {
     if (!id) return null;
     return doc(db, "projects", id as string);
   }, [db, id]);
   const { data: project, isLoading: isProjectLoading } = useDoc(projectRef);
 
-  // 3. Fetch Milestones
   const milestonesRef = useMemoFirebase(() => {
     if (!id) return null;
     return collection(db, "projects", id as string, "milestones");
   }, [db, id]);
   const { data: milestonesData } = useCollection(milestonesRef);
 
-  // 4. Fetch Activities
   const activitiesQuery = useMemoFirebase(() => {
     if (!id || !profile?.organizationId) return null;
     return query(
@@ -92,7 +88,6 @@ export default function ProjectDetailPage() {
   }, [db, id, profile]);
   const { data: activitiesData } = useCollection(activitiesQuery);
 
-  // 5. Fetch Expenses
   const expensesQuery = useMemoFirebase(() => {
     if (!id || !profile?.organizationId) return null;
     return query(
@@ -103,7 +98,6 @@ export default function ProjectDetailPage() {
   }, [db, id, profile]);
   const { data: expensesData } = useCollection(expensesQuery);
 
-  // 6. Fetch All Staff for Assignments
   const staffQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -113,7 +107,6 @@ export default function ProjectDetailPage() {
   }, [db, profile]);
   const { data: allStaff } = useCollection(staffQuery);
 
-  // Memoized lists
   const milestones = React.useMemo(() => {
     if (!milestonesData) return [];
     return [...milestonesData].sort((a, b) => {
@@ -145,7 +138,6 @@ export default function ProjectDetailPage() {
   const remainingBudget = (project?.budget || 0) - totalSpent;
   const canManage = profile?.role === "admin" || profile?.role === "manager";
 
-  // Automated Progress Calculation
   useEffect(() => {
     if (!project || milestones.length === 0 || !canManage) return;
 
@@ -162,13 +154,14 @@ export default function ProjectDetailPage() {
 
   const handleAddMilestone = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!id) return;
+    if (!id || !profile?.organizationId) return;
 
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     
     const newMilestone = {
       projectId: id as string,
+      organizationId: profile.organizationId,
       title: formData.get("title") as string,
       description: formData.get("description") as string,
       dueDate: formData.get("dueDate") as string,

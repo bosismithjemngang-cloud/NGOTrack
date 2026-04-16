@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -111,7 +112,7 @@ export default function DashboardPage() {
         });
         setBriefing(result);
       } catch (error) {
-        console.error("Failed to load morning briefing");
+        // AI flow failed silently, UI shows placeholder
       } finally {
         setIsBriefingLoading(false);
       }
@@ -191,7 +192,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* AI Morning Briefing Section */}
       <Card className="border-none bg-gradient-to-br from-primary/10 via-background to-secondary/10 shadow-sm overflow-hidden relative group">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
           <Sparkles className="h-24 w-24 text-primary" />
