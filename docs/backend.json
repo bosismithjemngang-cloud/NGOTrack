@@ -80,6 +80,22 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "projectId", "organizationId", "amount", "category", "expenseDate", "createdAt"]
+    },
+    "DocumentMetadata": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DocumentMetadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Grant", "Legal", "Financial", "Impact Report", "Field Photo", "Other"] },
+        "url": { "type": "string", "format": "uri" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "organizationId", "name", "category", "createdAt"]
     }
   },
   "auth": {
@@ -125,6 +141,14 @@
           "entityName": "Expense",
           "schema": { "$ref": "#/backend/entities/Expense" },
           "description": "Expense record."
+        }
+      },
+      {
+        "path": "/documents/{docId}",
+        "definition": {
+          "entityName": "DocumentMetadata",
+          "schema": { "$ref": "#/backend/entities/DocumentMetadata" },
+          "description": "Metadata for organization documents."
         }
       }
     ]

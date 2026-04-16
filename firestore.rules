@@ -29,16 +29,12 @@ service cloud.firestore {
     }
 
     match /user_profiles/{userId} {
-      // Allow get if it's the user's own profile, or they are in the same organization
-      // OR if they are an invited user checking their own invitation by email
       allow get: if isSignedIn() && (
         request.auth.uid == userId || 
         isDocInMyOrg(resource.data) ||
         (resource.data.status == 'invited' && request.auth.token.email == resource.data.email)
       );
 
-      // Allow listing profiles if they belong to the same organization
-      // OR if the user is searching for their own invitation (filtered by email)
       allow list: if isSignedIn() && (
         isDocInMyOrg(resource.data) ||
         (request.auth.token.email != null && resource.data.email == request.auth.token.email)
@@ -47,8 +43,6 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update: if isSignedIn() && request.auth.uid == userId;
 
-      // Allow deleting an invitation record during the "claim" process
-      // OR allow admins to remove staff
       allow delete: if isSignedIn() && (
         (resource.data.status == 'invited' && request.auth.token.email == resource.data.email) ||
         (getUserData().role == 'admin' && isDocInMyOrg(resource.data))
@@ -70,6 +64,12 @@ service cloud.firestore {
     match /expenses/{id} {
       allow list, get: if isSignedIn() && isDocInMyOrg(resource.data);
       allow create, update, delete: if isSignedIn() && isDocInMyOrg(request.resource.data || resource.data);
+    }
+
+    match /documents/{id} {
+      allow list, get: if isSignedIn() && isDocInMyOrg(resource.data);
+      allow create: if isSignedIn() && isDocInMyOrg(request.resource.data) && (getUserData().role in ['admin', 'manager', 'officer']);
+      allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
     }
   }
 }
