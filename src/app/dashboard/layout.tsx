@@ -14,7 +14,10 @@ import {
   Users, 
   LogOut,
   Search,
-  Bell
+  Bell,
+  Settings,
+  User as UserIcon,
+  ChevronDown
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -31,6 +34,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from "@/components/ui/dropdown-menu";
 import { useUser, useAuth, useDoc, useMemoFirebase, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -43,6 +54,7 @@ const navItems = [
   { title: "Reports", icon: PieChart, href: "/dashboard/reports" },
   { title: "Documents", icon: FileText, href: "/dashboard/documents" },
   { title: "Staff", icon: Users, href: "/dashboard/staff", roles: ["admin"] },
+  { title: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -146,20 +158,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="pl-10 bg-muted/30 border-none h-10 ring-offset-background focus-visible:ring-primary"
               />
             </div>
-            <div className="ml-auto flex items-center gap-4">
+            <div className="ml-auto flex items-center gap-2">
               <Button variant="ghost" size="icon" className="text-muted-foreground">
                 <Bell className="h-5 w-5" />
               </Button>
-              <div className="flex items-center gap-3 pl-4 border-l">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium">{profile?.firstName} {profile?.lastName}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
-                </div>
-                <Avatar className="h-9 w-9 border border-primary/20">
-                  <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} />
-                  <AvatarFallback>{profile?.firstName?.[0]}</AvatarFallback>
-                </Avatar>
-              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-3 pl-4 border-l h-10 rounded-none hover:bg-transparent">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-sm font-medium leading-none">{profile?.firstName} {profile?.lastName}</p>
+                      <p className="text-[10px] text-muted-foreground capitalize mt-1">{profile?.role}</p>
+                    </div>
+                    <div className="relative group">
+                      <Avatar className="h-9 w-9 border-2 border-primary/20 transition-all group-hover:border-primary">
+                        <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} />
+                        <AvatarFallback>{profile?.firstName?.[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-1 -right-1 bg-white rounded-full border border-muted p-0.5">
+                        <ChevronDown className="h-2 w-2 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/dashboard/settings" className="flex items-center">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      <span>Profile Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/dashboard/settings" className="flex items-center">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Organization</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
           <main className="flex-1 p-6 overflow-y-auto">
