@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect } from "react";
@@ -17,7 +16,8 @@ import {
   Bell,
   Settings,
   User as UserIcon,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -48,6 +48,7 @@ import { doc } from "firebase/firestore";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+  { title: "AI Assistant", icon: Sparkles, href: "/dashboard/assistant" },
   { title: "Projects", icon: Briefcase, href: "/dashboard/projects" },
   { title: "Activities", icon: CheckSquare, href: "/dashboard/activities" },
   { title: "Budget", icon: BarChart3, href: "/dashboard/budget" },
