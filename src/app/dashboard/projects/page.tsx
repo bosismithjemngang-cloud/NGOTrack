@@ -8,7 +8,10 @@ import {
   Filter, 
   MoreVertical, 
   MapPin, 
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Loader2,
+  Edit3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,16 +28,40 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProjectsPage() {
   const [search, setSearch] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const db = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
 
   // 1. Fetch User Profile to get organizationId
   const profileRef = useMemoFirebase(() => {
@@ -43,7 +70,7 @@ export default function ProjectsPage() {
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch projects scoped by organizationId for Query-Accurate Permissions (QAPs)
+  // 2. Fetch projects scoped by organizationId
   const projectsRef = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -58,6 +85,47 @@ export default function ProjectsPage() {
     p.location?.toLowerCase().includes(search.toLowerCase())
   ) || [];
 
+  const handleCreateProject = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!profile?.organizationId) return;
+
+    setIsSubmitting(true);
+    const formData = new FormData(e.currentTarget);
+    
+    const newProject = {
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      location: formData.get("location") as string,
+      budget: Number(formData.get("budget")),
+      status: formData.get("status") as string,
+      progress: 0,
+      organizationId: profile.organizationId,
+      createdAt: new Date().toISOString(),
+      projectMembers: { [user!.uid]: "owner" }
+    };
+
+    try {
+      addDocumentNonBlocking(collection(db, "projects"), newProject);
+      setIsCreateDialogOpen(false);
+      toast({
+        title: "Project Created",
+        description: `${newProject.name} has been added to your portfolio.`,
+      });
+    } catch (error) {
+      // Errors handled centrally by non-blocking updates
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProject = (projectId: string, projectName: string) => {
+    deleteDocumentNonBlocking(doc(db, "projects", projectId));
+    toast({
+      title: "Project Deleted",
+      description: `${projectName} has been removed.`,
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -65,10 +133,65 @@ export default function ProjectsPage() {
           <h2 className="text-3xl font-headline font-bold">Programs & Projects</h2>
           <p className="text-muted-foreground">Manage and monitor all active NGO initiatives.</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90">
-          <Plus className="h-4 w-4 mr-2" />
-          New Project
-        </Button>
+        
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[525px]">
+            <form onSubmit={handleCreateProject}>
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+                <DialogDescription>
+                  Define the scope, location, and budget for your new initiative.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Project Name</Label>
+                  <Input id="name" name="name" placeholder="e.g., Clean Water Initiative" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea id="description" name="description" placeholder="Project goals and objectives..." required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input id="location" name="location" placeholder="City, Region" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="budget">Budget (USD)</Label>
+                    <Input id="budget" name="budget" type="number" placeholder="5000" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Initial Status</Label>
+                  <Select name="status" defaultValue="Planning">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Planning">Planning</SelectItem>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="On Hold">On Hold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Create Project
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
@@ -99,10 +222,9 @@ export default function ProjectsPage() {
             <Card key={project.id} className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all flex flex-col group">
               <div className="relative h-48 overflow-hidden">
                 <img 
-                  src={project.image || `https://picsum.photos/seed/${project.id}/400/200`} 
+                  src={`https://picsum.photos/seed/${project.id}/400/200`} 
                   alt={project.name}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  data-ai-hint="ngo project"
                 />
                 <Badge className={`absolute top-4 right-4 ${
                   project.status === "Completed" ? "bg-primary" : 
@@ -129,10 +251,15 @@ export default function ProjectsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                    <DropdownMenuItem>View Reports</DropdownMenuItem>
-                    <DropdownMenuItem>Manage Budget</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">Archive Project</DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Edit3 className="h-4 w-4 mr-2" /> Edit Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-destructive cursor-pointer"
+                      onClick={() => handleDeleteProject(project.id, project.name)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Delete Project
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardHeader>
@@ -154,14 +281,16 @@ export default function ProjectsPage() {
                       <p className="text-sm font-semibold">${(project.budget || 0).toLocaleString()}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Status</p>
-                      <p className="text-sm font-semibold">{project.status}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Created</p>
+                      <p className="text-sm font-semibold">
+                        {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : 'N/A'}
+                      </p>
                     </div>
                   </div>
                 </div>
               </CardContent>
               <CardFooter className="pt-4 border-t">
-                <Button variant="ghost" className="w-full text-primary hover:bg-primary/5 hover:text-primary-foreground group-hover:translate-x-1 transition-all" asChild>
+                <Button variant="ghost" className="w-full text-primary hover:bg-primary/5 group-hover:translate-x-1 transition-all" asChild>
                   <Link href={`/dashboard/projects/${project.id}`}>
                     View Details
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -173,6 +302,7 @@ export default function ProjectsPage() {
           {filteredProjects.length === 0 && !isLoading && (
             <div className="col-span-full py-12 text-center bg-white rounded-lg border-2 border-dashed">
               <p className="text-muted-foreground">No projects found for your organization.</p>
+              <Button variant="link" onClick={() => setIsCreateDialogOpen(true)}>Create your first project</Button>
             </div>
           )}
         </div>
