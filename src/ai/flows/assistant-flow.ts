@@ -27,16 +27,9 @@ const AssistantOutputSchema = z.object({
 
 export type AssistantOutput = z.infer<typeof AssistantOutputSchema>;
 
-/**
- * Tools for the AI to interact with the NGO data
- * Note: These are defined locally within the flow file for encapsulation,
- * but they could be moved to a shared services folder.
- */
-import { getFirestore } from 'firebase-admin/firestore'; // Note: In this environment we use the client SDK patterns as per instructions, but for Genkit Server actions we can simulate the data fetch or use the AI object to define tools that the LLM will call.
-
-// Since Genkit tools in this prototype environment will be executed on the server,
-// and we are told to use the client 'firebase' SDK, we will pass the necessary data
-// context into the tools or simulate the retrieval for this prototype.
+// Note: We use client-side 'firebase' SDK for data as per instructions.
+// For the AI Assistant to be fully functional, data context should be fetched
+// on the client and passed to the flow, or retrieved via dedicated tools.
 
 export async function askAssistant(input: AssistantInput): Promise<AssistantOutput> {
   return assistantFlow(input);
@@ -60,8 +53,6 @@ const assistantFlow = ai.defineFlow(
       4. Always keep your answers focused on Organization ID: ${input.organizationId}.
       5. If you don't know the answer or can't access specific data, say so clearly.`,
       prompt: input.query,
-      // In a full implementation, we would register real Firestore tools here.
-      // For this MVP, we are providing a sophisticated reasoning prompt.
     });
 
     return {

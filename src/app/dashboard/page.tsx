@@ -1,7 +1,6 @@
-
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { 
   Briefcase, 
   CheckCircle2, 
@@ -9,7 +8,10 @@ import {
   TrendingUp, 
   Users, 
   DollarSign,
-  ArrowUpRight,
+  Sparkles,
+  ArrowRight,
+  Loader2,
+  Lightbulb
 } from "lucide-react";
 import { 
   Card, 
@@ -34,11 +36,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, query, limit, where, doc } from "firebase/firestore";
+import { generateMorningBriefing, type BriefingOutput } from "@/ai/flows/morning-briefing-flow";
 import Link from "next/link";
 
 export default function DashboardPage() {
   const db = useFirestore();
   const { user } = useUser();
+  const [briefing, setBriefing] = useState<BriefingOutput | null>(null);
+  const [isBriefingLoading, setIsBriefingLoading] = useState(false);
 
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -60,7 +65,7 @@ export default function DashboardPage() {
       limit(20)
     );
   }, [db, profile]);
-  const { data: activitiesData, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
+  const { data: activitiesData } = useCollection(activitiesQuery);
 
   const projectsQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
@@ -80,7 +85,40 @@ export default function DashboardPage() {
   }, [db, profile]);
   const { data: expenses } = useCollection(expensesQuery);
 
-  // Dynamic Project Status Data
+  const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
+
+  useEffect(() => {
+    async function getBriefing() {
+      if (!profile || !projects || !activitiesData || isBriefingLoading || briefing) return;
+      
+      setIsBriefingLoading(true);
+      try {
+        const result = await generateMorningBriefing({
+          orgName: organization?.name || "the organization",
+          userName: profile.firstName,
+          projects: projects.map(p => ({
+            name: p.name,
+            status: p.status,
+            progress: p.progress || 0,
+            budget: p.budget || 0,
+          })),
+          totalSpent,
+          recentActivities: activitiesData.slice(0, 3).map(a => ({
+            name: a.name,
+            projectName: projects.find(p => p.id === a.projectId)?.name || "Unknown",
+            createdAt: a.createdAt,
+          })),
+        });
+        setBriefing(result);
+      } catch (error) {
+        console.error("Failed to load morning briefing");
+      } finally {
+        setIsBriefingLoading(false);
+      }
+    }
+    getBriefing();
+  }, [profile, projects, activitiesData, organization, totalSpent, briefing]);
+
   const projectStatusData = React.useMemo(() => {
     if (!projects) return [];
     const counts = projects.reduce((acc: any, p) => {
@@ -103,7 +141,6 @@ export default function DashboardPage() {
     }));
   }, [projects]);
 
-  // Dynamic Budget Data (Total per project)
   const budgetChartData = React.useMemo(() => {
     if (!projects || !expenses) return [];
     return projects.slice(0, 6).map(p => {
@@ -128,7 +165,6 @@ export default function DashboardPage() {
   }, [activitiesData]);
 
   const totalBudget = projects?.reduce((acc, p) => acc + (p.budget || 0), 0) || 0;
-  const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
   const utilizationRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
 
   const stats = [
@@ -138,7 +174,7 @@ export default function DashboardPage() {
     { label: "Completed", value: projects?.filter(p => p.status === 'Completed').length.toString() || "0", icon: CheckCircle2, change: "Finished programs", trend: "up" },
   ];
 
-  if (!profile && !isActivitiesLoading) return null;
+  if (!profile && !projects) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -154,6 +190,62 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* AI Morning Briefing Section */}
+      <Card className="border-none bg-gradient-to-br from-primary/10 via-background to-secondary/10 shadow-sm overflow-hidden relative group">
+        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+          <Sparkles className="h-24 w-24 text-primary" />
+        </div>
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-primary" />
+            </div>
+            <CardTitle className="text-lg font-headline">Intelligence Briefing</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isBriefingLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Analyzing program status...</span>
+            </div>
+          ) : briefing ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-xl font-bold text-primary mb-1">{briefing.greeting}</p>
+                <p className="text-sm text-foreground/80 leading-relaxed">{briefing.summary}</p>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4 pt-2">
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1">
+                    <Lightbulb className="h-3 w-3" />
+                    Today's Priorities
+                  </p>
+                  <ul className="space-y-1">
+                    {briefing.topPriorities.map((p, i) => (
+                      <li key={i} className="text-xs flex items-center gap-2">
+                        <div className="h-1 w-1 rounded-full bg-primary" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {briefing.statusAlert && (
+                  <div className="bg-destructive/5 border border-destructive/10 p-3 rounded-lg flex items-start gap-3">
+                    <TrendingUp className="h-4 w-4 text-destructive mt-0.5" />
+                    <p className="text-xs text-destructive-foreground font-medium">{briefing.statusAlert}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-sm text-muted-foreground italic">
+              Log activity or update projects to generate your intelligence briefing.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
@@ -240,9 +332,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {isActivitiesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : recentActivities.length === 0 ? (
+            {!recentActivities || recentActivities.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent activities for your organization.</p>
             ) : (
               recentActivities.map((activity) => (
@@ -259,6 +349,11 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground mt-1">{activity.createdAt ? new Date(activity.createdAt).toLocaleDateString() : 'Active'}</p>
                     </div>
                   </div>
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link href={`/dashboard/projects/${activity.projectId}`}>
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
               ))
             )}
