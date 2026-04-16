@@ -42,7 +42,7 @@ const navItems = [
   { title: "Budget", icon: BarChart3, href: "/dashboard/budget" },
   { title: "Reports", icon: PieChart, href: "/dashboard/reports" },
   { title: "Documents", icon: FileText, href: "/dashboard/documents" },
-  { title: "Staff", icon: Users, href: "/dashboard/staff" },
+  { title: "Staff", icon: Users, href: "/dashboard/staff", roles: ["admin"] },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -52,7 +52,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
-  // Fetch User Profile to get organizationId
   const userProfileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "user_profiles", user.uid);
@@ -70,6 +69,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/");
   };
 
+  const filteredNavItems = navItems.filter(item => {
+    if (!item.roles) return true;
+    return profile?.role && item.roles.includes(profile.role);
+  });
+
   if (isUserLoading || (user && isProfileLoading)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -78,8 +82,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // If logged in but no profile (e.g., initial signup race condition or error), we'd usually redirect to an onboarding or error page.
-  // For simplicity, we just check if profile exists here.
   if (user && !isProfileLoading && !profile) {
     return <div className="p-8 text-center">User profile not found. Please contact support.</div>;
   }
@@ -98,7 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </SidebarHeader>
           <SidebarContent className="px-4 py-2">
             <SidebarMenu>
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton 
                     asChild 

@@ -9,7 +9,8 @@ import {
   Shield, 
   UserPlus,
   MoreVertical,
-  Loader2
+  Loader2,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,14 +58,12 @@ export default function StaffPage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // 1. Fetch Admin Profile
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "user_profiles", user.uid);
   }, [db, user]);
-  const { data: profile } = useDoc(profileRef);
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  // 2. Fetch all staff in this organization
   const staffQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -79,34 +78,49 @@ export default function StaffPage() {
     s.email.toLowerCase().includes(search.toLowerCase())
   ) || [];
 
+  const isAdmin = profile?.role === "admin";
+
   const handleAddStaff = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!profile?.organizationId) return;
+    if (!profile?.organizationId || !isAdmin) return;
 
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const newStaff = {
-      id: crypto.randomUUID(), // Temporary ID until they sign up
+      id: crypto.randomUUID(),
       firstName: formData.get("firstName") as string,
       lastName: formData.get("lastName") as string,
       email: formData.get("email") as string,
       role: formData.get("role") as string,
       organizationId: profile.organizationId,
       createdAt: new Date().toISOString(),
-      status: "invited" // Mark as invited
+      status: "invited"
     };
 
     try {
-      // Create a profile record. When the user signs up with this email, 
-      // the signup page will link their UID to this record.
       await setDoc(doc(db, "user_profiles", newStaff.id), newStaff);
       setIsAddDialogOpen(false);
-    } catch (error) {
-      console.error("Error adding staff:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!isProfileLoading && !isAdmin) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center text-center space-y-4">
+        <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
+          <Lock className="h-10 w-10" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
+          <p className="text-muted-foreground max-w-sm">Only organization administrators have access to team management and staff invitations.</p>
+        </div>
+        <Button variant="outline" asChild>
+          <a href="/dashboard">Back to Overview</a>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

@@ -63,14 +63,15 @@ export default function ProjectsPage() {
   const { user } = useUser();
   const { toast } = useToast();
 
-  // 1. Fetch User Profile to get organizationId
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "user_profiles", user.uid);
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch projects scoped by organizationId
+  const isAdminOrManager = profile?.role === "admin" || profile?.role === "manager";
+  const isAdmin = profile?.role === "admin";
+
   const projectsRef = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -101,7 +102,6 @@ export default function ProjectsPage() {
       progress: 0,
       organizationId: profile.organizationId,
       createdAt: new Date().toISOString(),
-      projectMembers: { [user!.uid]: "owner" }
     };
 
     try {
@@ -111,8 +111,6 @@ export default function ProjectsPage() {
         title: "Project Created",
         description: `${newProject.name} has been added to your portfolio.`,
       });
-    } catch (error) {
-      // Errors handled centrally by non-blocking updates
     } finally {
       setIsSubmitting(false);
     }
@@ -134,64 +132,66 @@ export default function ProjectsPage() {
           <p className="text-muted-foreground">Manage and monitor all active NGO initiatives.</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus className="h-4 w-4 mr-2" />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[525px]">
-            <form onSubmit={handleCreateProject}>
-              <DialogHeader>
-                <DialogTitle>Create New Project</DialogTitle>
-                <DialogDescription>
-                  Define the scope, location, and budget for your new initiative.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Project Name</Label>
-                  <Input id="name" name="name" placeholder="e.g., Clean Water Initiative" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" name="description" placeholder="Project goals and objectives..." required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+        {isAdminOrManager && (
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[525px]">
+              <form onSubmit={handleCreateProject}>
+                <DialogHeader>
+                  <DialogTitle>Create New Project</DialogTitle>
+                  <DialogDescription>
+                    Define the scope, location, and budget for your new initiative.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Input id="location" name="location" placeholder="City, Region" required />
+                    <Label htmlFor="name">Project Name</Label>
+                    <Input id="name" name="name" placeholder="e.g., Clean Water Initiative" required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="budget">Budget (USD)</Label>
-                    <Input id="budget" name="budget" type="number" placeholder="5000" required />
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea id="description" name="description" placeholder="Project goals and objectives..." required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input id="location" name="location" placeholder="City, Region" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="budget">Budget (USD)</Label>
+                      <Input id="budget" name="budget" type="number" placeholder="5000" required />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Initial Status</Label>
+                    <Select name="status" defaultValue="Planning">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Planning">Planning</SelectItem>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="On Hold">On Hold</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Initial Status</Label>
-                  <Select name="status" defaultValue="Planning">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Planning">Planning</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="On Hold">On Hold</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create Project
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Create Project
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
@@ -244,24 +244,28 @@ export default function ProjectsPage() {
                     {project.location || 'Location Pending'}
                   </div>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem className="cursor-pointer">
-                      <Edit3 className="h-4 w-4 mr-2" /> Edit Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-destructive cursor-pointer"
-                      onClick={() => handleDeleteProject(project.id, project.name)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete Project
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isAdminOrManager && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem className="cursor-pointer">
+                        <Edit3 className="h-4 w-4 mr-2" /> Edit Details
+                      </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem 
+                          className="text-destructive cursor-pointer"
+                          onClick={() => handleDeleteProject(project.id, project.name)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete Project
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </CardHeader>
               <CardContent className="flex-1">
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
@@ -302,7 +306,9 @@ export default function ProjectsPage() {
           {filteredProjects.length === 0 && !isLoading && (
             <div className="col-span-full py-12 text-center bg-white rounded-lg border-2 border-dashed">
               <p className="text-muted-foreground">No projects found for your organization.</p>
-              <Button variant="link" onClick={() => setIsCreateDialogOpen(true)}>Create your first project</Button>
+              {isAdminOrManager && (
+                <Button variant="link" onClick={() => setIsCreateDialogOpen(true)}>Create your first project</Button>
+              )}
             </div>
           )}
         </div>

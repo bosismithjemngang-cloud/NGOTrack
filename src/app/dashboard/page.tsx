@@ -10,7 +10,6 @@ import {
   Users, 
   DollarSign,
   ArrowUpRight,
-  ArrowDownRight
 } from "lucide-react";
 import { 
   Card, 
@@ -35,41 +34,24 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, query, limit, where, doc } from "firebase/firestore";
-
-const projectStatusData = [
-  { name: "Completed", value: 12, color: "hsl(var(--primary))" },
-  { name: "Active", value: 8, color: "hsl(var(--secondary))" },
-  { name: "Planning", value: 5, color: "hsl(var(--chart-3))" },
-];
-
-const budgetData = [
-  { month: "Jan", allocated: 45000, spent: 32000 },
-  { month: "Feb", allocated: 45000, spent: 38000 },
-  { month: "Mar", allocated: 50000, spent: 48000 },
-  { month: "Apr", allocated: 50000, spent: 42000 },
-  { month: "May", allocated: 55000, spent: 51000 },
-  { month: "Jun", allocated: 55000, spent: 49000 },
-];
+import Link from "next/link";
 
 export default function DashboardPage() {
   const db = useFirestore();
   const { user } = useUser();
 
-  // 1. Fetch User Profile for organizationId
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "user_profiles", user.uid);
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Organization details
   const orgRef = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return doc(db, "organizations", profile.organizationId);
   }, [db, profile?.organizationId]);
   const { data: organization } = useDoc(orgRef);
 
-  // 3. Fetch data scoped by organizationId
   const activitiesQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -98,7 +80,45 @@ export default function DashboardPage() {
   }, [db, profile]);
   const { data: expenses } = useCollection(expensesQuery);
 
-  const activities = React.useMemo(() => {
+  // Dynamic Project Status Data
+  const projectStatusData = React.useMemo(() => {
+    if (!projects) return [];
+    const counts = projects.reduce((acc: any, p) => {
+      const status = p.status || "Planning";
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const colors: Record<string, string> = {
+      "Completed": "hsl(var(--primary))",
+      "Active": "hsl(var(--secondary))",
+      "Planning": "hsl(var(--chart-3))",
+      "On Hold": "hsl(var(--chart-5))"
+    };
+
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value: value as number,
+      color: colors[name] || "hsl(var(--muted))"
+    }));
+  }, [projects]);
+
+  // Dynamic Budget Data (Total per project)
+  const budgetChartData = React.useMemo(() => {
+    if (!projects || !expenses) return [];
+    return projects.slice(0, 6).map(p => {
+      const spent = expenses
+        .filter(e => e.projectId === p.id)
+        .reduce((sum, e) => sum + (e.amount || 0), 0);
+      return {
+        name: p.name.length > 10 ? p.name.substring(0, 10) + "..." : p.name,
+        allocated: p.budget || 0,
+        spent: spent
+      };
+    });
+  }, [projects, expenses]);
+
+  const recentActivities = React.useMemo(() => {
     if (!activitiesData) return [];
     return [...activitiesData].sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -112,13 +132,13 @@ export default function DashboardPage() {
   const utilizationRate = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
 
   const stats = [
-    { label: "My Projects", value: projects?.length.toString() || "0", icon: Briefcase, change: "Active programs", trend: "up" },
-    { label: "Beneficiaries", value: "1,240", icon: Users, change: "+15% vs last qtr", trend: "up" },
-    { label: "Budget Utilization", value: `${utilizationRate}%`, icon: DollarSign, change: "On-track spending", trend: "up" },
-    { label: "Completion Rate", value: "92%", icon: CheckCircle2, change: "+4% performance", trend: "up" },
+    { label: "Active Projects", value: projects?.length.toString() || "0", icon: Briefcase, change: "Current initiatives", trend: "up" },
+    { label: "Team Members", value: "...", icon: Users, change: "Active staff", trend: "up" },
+    { label: "Budget Used", value: `${utilizationRate}%`, icon: DollarSign, change: `$${totalSpent.toLocaleString()} spent`, trend: "up" },
+    { label: "Completed", value: projects?.filter(p => p.status === 'Completed').length.toString() || "0", icon: CheckCircle2, change: "Finished programs", trend: "up" },
   ];
 
-  if (!profile && !isActivitiesLoading) return null; // Wait for profile
+  if (!profile && !isActivitiesLoading) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -147,7 +167,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
               <div className="flex items-center mt-1">
-                <ArrowUpRight className="h-3 w-3 text-primary mr-1" />
+                <TrendingUp className="h-3 w-3 text-primary mr-1" />
                 <span className="text-xs text-primary">{stat.change}</span>
               </div>
             </CardContent>
@@ -159,18 +179,18 @@ export default function DashboardPage() {
         <Card className="lg:col-span-4 border-none bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="font-headline text-xl">Budget vs Expenditure</CardTitle>
-            <CardDescription>Monthly overview for organization (USD)</CardDescription>
+            <CardDescription>Actual spending per project (USD)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={budgetData}>
+                <BarChart data={budgetChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} tickFormatter={(v) => `$${v/1000}k`} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#888' }} tickFormatter={(v) => `$${v/1000}k`} />
                   <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                  <Bar dataKey="allocated" fill="#ADD8E6" radius={[4, 4, 0, 0]} name="Allocated" />
-                  <Bar dataKey="spent" fill="#2E8B57" radius={[4, 4, 0, 0]} name="Spent" />
+                  <Bar dataKey="allocated" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} name="Allocated" />
+                  <Bar dataKey="spent" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Spent" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -179,7 +199,7 @@ export default function DashboardPage() {
 
         <Card className="lg:col-span-3 border-none bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="font-headline text-xl">Portfolio Status</CardTitle>
+            <CardTitle className="font-headline text-xl">Program Status</CardTitle>
             <CardDescription>Distribution across organization</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
@@ -212,22 +232,24 @@ export default function DashboardPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="font-headline text-xl">Recent Staff Updates</CardTitle>
-            <CardDescription>Updates from your team members</CardDescription>
+            <CardDescription>Live progress from your field team</CardDescription>
           </div>
-          <Button variant="outline" size="sm">View History</Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard/activities">View All Activities</Link>
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
             {isActivitiesLoading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : activities.length === 0 ? (
+            ) : recentActivities.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent activities for your organization.</p>
             ) : (
-              activities.map((activity, i) => (
+              recentActivities.map((activity) => (
                 <div key={activity.id} className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0">
                   <div className="flex gap-4">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={`https://picsum.photos/seed/${activity.id}/40/40`} />
+                      <AvatarImage src={`https://picsum.photos/seed/${activity.createdBy}/40/40`} />
                       <AvatarFallback>{activity.name?.[0]}</AvatarFallback>
                     </Avatar>
                     <div>
