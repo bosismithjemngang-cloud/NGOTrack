@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect } from "react";
@@ -149,30 +150,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset className="flex flex-col flex-1">
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-6">
+        <SidebarInset className="flex flex-col flex-1 min-w-0">
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-white px-4 sm:px-6">
             <SidebarTrigger />
-            <div className="relative flex-1 max-w-md hidden sm:block">
+            <div className="relative flex-1 max-w-md hidden md:block">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input 
-                placeholder="Search projects, activities..." 
+                placeholder="Search projects..." 
                 className="pl-10 bg-muted/30 border-none h-10 ring-offset-background focus-visible:ring-primary"
               />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 sm:gap-2">
               <Button variant="ghost" size="icon" className="text-muted-foreground">
                 <Bell className="h-5 w-5" />
               </Button>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-3 pl-4 border-l h-10 rounded-none hover:bg-transparent">
+                  <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 px-2 sm:pl-4 sm:border-l h-10 rounded-none hover:bg-transparent">
                     <div className="text-right hidden sm:block">
                       <p className="text-sm font-medium leading-none">{profile?.firstName} {profile?.lastName}</p>
                       <p className="text-[10px] text-muted-foreground capitalize mt-1">{profile?.role}</p>
                     </div>
                     <div className="relative group">
-                      <Avatar className="h-9 w-9 border-2 border-primary/20 transition-all group-hover:border-primary">
+                      <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-primary/20 transition-all group-hover:border-primary">
                         <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} />
                         <AvatarFallback>{profile?.firstName?.[0]}</AvatarFallback>
                       </Avatar>
@@ -183,6 +184,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="sm:hidden">
+                    <p className="text-sm font-medium leading-none">{profile?.firstName} {profile?.lastName}</p>
+                    <p className="text-[10px] text-muted-foreground capitalize mt-1">{profile?.role}</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="sm:hidden" />
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="cursor-pointer">
@@ -206,7 +212,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </DropdownMenu>
             </div>
           </header>
-          <main className="flex-1 p-6 overflow-y-auto">
+          <main className="flex-1 p-4 sm:p-6 overflow-y-auto min-w-0">
             {children}
           </main>
         </SidebarInset>

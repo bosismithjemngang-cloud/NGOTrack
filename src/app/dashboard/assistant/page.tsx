@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -54,7 +55,7 @@ export default function AssistantPage() {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -93,62 +94,62 @@ export default function AssistantPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] max-w-5xl mx-auto animate-in fade-in duration-500">
-      <div className="flex items-center justify-between mb-4 px-2">
+    <div className="flex flex-col h-[calc(100vh-100px)] sm:h-[calc(100vh-120px)] max-w-5xl mx-auto animate-in fade-in duration-500 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 px-1 gap-2">
         <div>
-          <h2 className="text-3xl font-headline font-bold flex items-center gap-2">
-            <Sparkles className="h-7 w-7 text-primary" />
+          <h2 className="text-2xl sm:text-3xl font-headline font-bold flex items-center gap-2">
+            <Sparkles className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
             AI Assistant
           </h2>
-          <p className="text-muted-foreground">Ask questions about your projects, team, and budget.</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Query live program, team, and budget data.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setMessages([messages[0]])}>
+        <Button variant="outline" size="sm" onClick={() => setMessages([messages[0]])} className="w-fit">
           <PlusCircle className="h-4 w-4 mr-2" />
-          New Conversation
+          Reset Chat
         </Button>
       </div>
 
-      <Card className="flex-1 flex flex-col overflow-hidden border-none shadow-xl bg-white/50 backdrop-blur-sm">
-        <ScrollArea className="flex-1 p-6">
+      <Card className="flex-1 flex flex-col overflow-hidden border-none shadow-xl bg-white/50 backdrop-blur-sm min-w-0">
+        <ScrollArea className="flex-1 p-3 sm:p-6">
           <div className="space-y-6">
             {messages.map((message, i) => (
               <div key={i} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex gap-4 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <Avatar className={`h-10 w-10 border-2 ${message.role === 'assistant' ? 'border-primary/20' : 'border-secondary/20'}`}>
+                <div className={`flex gap-2 sm:gap-4 max-w-[90%] sm:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <Avatar className={`h-8 w-8 sm:h-10 sm:w-10 border-2 shrink-0 ${message.role === 'assistant' ? 'border-primary/20' : 'border-secondary/20'}`}>
                     {message.role === 'assistant' ? (
                       <div className="bg-primary h-full w-full flex items-center justify-center text-white">
-                        <Bot className="h-6 w-6" />
+                        <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
                       </div>
                     ) : (
                       <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} />
                     )}
                     <AvatarFallback>{message.role === 'assistant' ? 'AI' : 'U'}</AvatarFallback>
                   </Avatar>
-                  <div className="space-y-2">
-                    <div className={`p-4 rounded-2xl shadow-sm ${
+                  <div className="space-y-2 min-w-0">
+                    <div className={`p-3 sm:p-4 rounded-2xl shadow-sm ${
                       message.role === 'user' 
                         ? 'bg-primary text-white rounded-tr-none' 
                         : 'bg-white border text-foreground rounded-tl-none'
                     }`}>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                      <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
                     </div>
                     {message.suggestions && message.suggestions.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-2">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-1">
                         {message.suggestions.map((s, idx) => (
                           <Button 
                             key={idx} 
                             variant="secondary" 
                             size="sm" 
-                            className="text-[10px] h-7 rounded-full bg-secondary/30 hover:bg-secondary/50 border-none"
+                            className="text-[9px] sm:text-[10px] h-6 sm:h-7 rounded-full bg-secondary/30 hover:bg-secondary/50 border-none px-2 sm:px-3"
                             onClick={() => handleSuggestionClick(s)}
                           >
-                            <Lightbulb className="h-3 w-3 mr-1" />
+                            <Lightbulb className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
                             {s}
                           </Button>
                         ))}
                       </div>
                     )}
-                    <p className={`text-[10px] text-muted-foreground ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                    <p className={`text-[9px] sm:text-[10px] text-muted-foreground ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                       {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -157,13 +158,13 @@ export default function AssistantPage() {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="flex gap-4 max-w-[80%]">
-                  <div className="bg-primary h-10 w-10 rounded-full flex items-center justify-center text-white animate-pulse">
-                    <Bot className="h-6 w-6" />
+                <div className="flex gap-2 sm:gap-4 max-w-[90%] sm:max-w-[80%]">
+                  <div className="bg-primary h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white animate-pulse shrink-0">
+                    <Bot className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
-                  <div className="bg-white border p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground italic">Thinking...</span>
+                  <div className="bg-white border p-3 sm:p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin text-primary" />
+                    <span className="text-xs sm:text-sm text-muted-foreground italic">Analysing records...</span>
                   </div>
                 </div>
               </div>
@@ -172,20 +173,20 @@ export default function AssistantPage() {
           </div>
         </ScrollArea>
 
-        <div className="p-6 border-t bg-white">
+        <div className="p-3 sm:p-6 border-t bg-white">
           <form onSubmit={handleSend} className="flex gap-2">
             <Input 
-              placeholder="Ask me anything... e.g., 'What's the status of the Water project?'" 
+              placeholder="Query project data..." 
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="flex-1 h-12 rounded-xl focus-visible:ring-primary"
+              className="flex-1 h-10 sm:h-12 rounded-xl focus-visible:ring-primary text-xs sm:text-sm"
               disabled={isLoading}
             />
-            <Button type="submit" size="icon" className="h-12 w-12 rounded-xl" disabled={!input.trim() || isLoading}>
-              <Send className="h-5 w-5" />
+            <Button type="submit" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl shrink-0" disabled={!input.trim() || isLoading}>
+              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </form>
-          <div className="flex items-center justify-center gap-4 mt-4 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mt-3 sm:mt-4 text-[8px] sm:text-[10px] text-muted-foreground uppercase tracking-widest font-bold text-center">
             <span>Enterprise Intelligence</span>
             <div className="h-1 w-1 bg-muted rounded-full" />
             <span>Secure Cloud Compute</span>
