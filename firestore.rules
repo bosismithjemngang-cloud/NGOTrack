@@ -8,8 +8,7 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      let path = /databases/$(database)/documents/user_profiles/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
+      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
     }
 
     function isMemberOfOrg(orgId) {
@@ -19,7 +18,7 @@ service cloud.firestore {
 
     function isDocInMyOrg(docData) {
       let data = getUserData();
-      return isSignedIn() && data != null && data.organizationId == docData.organizationId;
+      return isSignedIn() && data != null && docData != null && data.organizationId == docData.organizationId;
     }
 
     match /organizations/{orgId} {
@@ -31,12 +30,12 @@ service cloud.firestore {
     match /user_profiles/{userId} {
       allow get: if isSignedIn() && (
         request.auth.uid == userId || 
-        isDocInMyOrg(resource.data) ||
+        getUserData().organizationId == resource.data.organizationId ||
         (resource.data.status == 'invited' && request.auth.token.email == resource.data.email)
       );
 
       allow list: if isSignedIn() && (
-        isDocInMyOrg(resource.data) ||
+        getUserData().organizationId == resource.data.organizationId ||
         (request.auth.token.email != null && resource.data.email == request.auth.token.email)
       );
 
@@ -45,7 +44,7 @@ service cloud.firestore {
 
       allow delete: if isSignedIn() && (
         (resource.data.status == 'invited' && request.auth.token.email == request.auth.token.email) ||
-        (getUserData().role == 'admin' && isDocInMyOrg(resource.data))
+        (getUserData().role == 'admin' && getUserData().organizationId == resource.data.organizationId)
       );
     }
 
