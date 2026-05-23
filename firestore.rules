@@ -35,7 +35,7 @@ service cloud.firestore {
       );
 
       allow list: if isSignedIn() && (
-        getUserData().organizationId == resource.data.organizationId ||
+        resource.data.organizationId == getUserData().organizationId ||
         (request.auth.token.email != null && resource.data.email == request.auth.token.email)
       );
 
@@ -55,9 +55,8 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && getUserData().role == 'admin';
       
       match /milestones/{id} {
-        allow list, get: if isSignedIn() && isDocInMyOrg(resource.data);
-        allow create: if isSignedIn() && isDocInMyOrg(request.resource.data) && (getUserData().role in ['admin', 'manager']);
-        allow update, delete: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
+        allow list, get: if isSignedIn() && (isDocInMyOrg(resource.data) || isDocInMyOrg(get(/databases/$(database)/documents/projects/$(projectId)).data));
+        allow create, update, delete: if isSignedIn() && (getUserData().role in ['admin', 'manager']);
       }
     }
 
@@ -78,9 +77,9 @@ service cloud.firestore {
     }
 
     match /notifications/{id} {
-      allow list, get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow create: if isSignedIn(); // Allow internal creation
+      allow create: if isSignedIn();
     }
   }
 }

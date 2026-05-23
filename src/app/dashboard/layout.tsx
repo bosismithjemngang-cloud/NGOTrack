@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [db, user]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  // Notifications logic
+  // Notifications logic - strictly scoped by userId for security rules
   const notificationsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
