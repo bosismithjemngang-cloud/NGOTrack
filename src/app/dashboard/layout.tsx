@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -81,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Notifications logic - strictly scoped by userId for security rules
   const notificationsQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
+    if (!db || !user?.uid) return null;
     return query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
