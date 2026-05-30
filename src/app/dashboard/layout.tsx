@@ -81,14 +81,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Notifications logic - strictly scoped by userId for security rules
   const notificationsQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user?.uid) return null;
     return query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
       orderBy("createdAt", "desc"),
       limit(5)
     );
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: notifications } = useCollection(notificationsQuery);
 
   const unreadCount = notifications?.filter(n => !n.read).length || 0;

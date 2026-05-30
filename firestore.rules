@@ -77,9 +77,13 @@ service cloud.firestore {
     }
 
     match /notifications/{id} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Explicitly allow list and get for the owner
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Allow marking as read (only changing the 'read' field)
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow create: if isSignedIn();
+      // Allow creation if the userId matches the creator
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
   }
 }
