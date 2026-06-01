@@ -82,6 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     // CRITICAL: The security rules for 'list' on notifications require a filter on 'userId'
+    // This filter must match exactly what is allowed in firestore.rules
     return query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
@@ -113,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return profile?.role && item.roles.includes(profile.role);
   });
 
-  if (isUserLoading || (user && isProfileLoading)) {
+  if (isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

@@ -29,7 +29,7 @@ service cloud.firestore {
     }
 
     match /user_profiles/{userId} {
-      // 1. Allow a user to get their own profile by UID, regardless of what's in it.
+      // 1. Allow a user to get their own profile by UID.
       allow get: if isSignedIn() && request.auth.uid == userId;
       
       // 2. Allow getting other profiles within the same organization.
@@ -48,12 +48,14 @@ service cloud.firestore {
 
       allow delete: if isSignedIn() && (
         (request.auth.uid == userId) ||
+        // CRITICAL: Allow invited users to claim their profile by email match
+        (resource.data.email == request.auth.token.email && resource.data.status == 'invited') ||
         (getUserData() != null && getUserData().role == 'admin' && get(/databases/$(database)/documents/user_profiles/$(userId)).data.organizationId == getUserData().organizationId)
       );
     }
 
     match /projects/{projectId} {
-      allow list: if isSignedIn(); // Filtered by organizationId in code
+      allow list: if isSignedIn(); 
       allow get: if isSignedIn() && isDocInMyOrg(resource.data);
       allow create: if isSignedIn() && (request.resource.data.organizationId != null);
       allow update: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
@@ -86,10 +88,10 @@ service cloud.firestore {
 
     match /notifications/{id} {
       // Users can only access notifications that belong to them.
-      // We check request.auth.uid against the userId field in the document.
-      allow list: if isSignedIn(); // Relies on query filters in DashboardLayout
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // We explicitly check the userId field for list/get operations.
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
