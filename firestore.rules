@@ -6,8 +6,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Helper to get user data safely. 
+    // We use exists() to prevent rules from crashing if the profile is missing.
     function getUserData() {
-      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
+      let profilePath = /databases/$(database)/documents/user_profiles/$(request.auth.uid);
+      return exists(profilePath) ? get(profilePath).data : null;
     }
 
     function isMemberOfOrg(orgId) {
@@ -29,13 +32,15 @@ service cloud.firestore {
     match /user_profiles/{userId} {
       allow get: if isSignedIn() && (
         request.auth.uid == userId || 
-        getUserData().organizationId == resource.data.organizationId ||
-        (resource.data.status == 'invited' && request.auth.token.email == resource.data.email)
+        (resource.data != null && getUserData() != null && getUserData().organizationId == resource.data.organizationId) ||
+        (resource.data != null && resource.data.status == 'invited' && request.auth.token.email == resource.data.email)
       );
 
+      // CRITICAL FIX: Allow users to list (query) their own profiles by email 
+      // without needing an existing profile (essential for claiming invites).
       allow list: if isSignedIn() && (
-        resource.data.organizationId == getUserData().organizationId ||
-        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
+        (request.auth.token.email != null && resource.data.email == request.auth.token.email) ||
+        (getUserData() != null && resource.data.organizationId == getUserData().organizationId)
       );
 
       allow create: if isSignedIn();
@@ -43,7 +48,7 @@ service cloud.firestore {
 
       allow delete: if isSignedIn() && (
         (resource.data.status == 'invited' && request.auth.token.email == request.auth.token.email) ||
-        (getUserData().role == 'admin' && getUserData().organizationId == resource.data.organizationId)
+        (getUserData() != null && getUserData().role == 'admin' && getUserData().organizationId == resource.data.organizationId)
       );
     }
 
@@ -55,7 +60,7 @@ service cloud.firestore {
       
       match /milestones/{id} {
         allow list, get: if isSignedIn() && (isDocInMyOrg(resource.data) || isDocInMyOrg(get(/databases/$(database)/documents/projects/$(projectId)).data));
-        allow create, update, delete: if isSignedIn() && (getUserData().role in ['admin', 'manager']);
+        allow create, update, delete: if isSignedIn() && (getUserData() != null && getUserData().role in ['admin', 'manager']);
       }
     }
 
@@ -71,15 +76,15 @@ service cloud.firestore {
 
     match /documents/{id} {
       allow list, get: if isSignedIn() && isDocInMyOrg(resource.data);
-      allow create: if isSignedIn() && isDocInMyOrg(request.resource.data) && (getUserData().role in ['admin', 'manager', 'officer']);
-      allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
+      allow create: if isSignedIn() && isDocInMyOrg(request.resource.data) && (getUserData() != null && getUserData().role in ['admin', 'manager', 'officer']);
+      allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData() != null && getUserData().role in ['admin', 'manager']);
     }
 
     match /notifications/{id} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Simple, robust rule for personal notifications.
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
