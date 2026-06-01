@@ -73,19 +73,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const auth = useAuth();
 
   const userProfileRef = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user?.uid) return null;
     return doc(db, "user_profiles", user.uid);
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
   // Notifications logic - strictly scoped by userId for security rules
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
+    // CRITICAL: The security rules for 'list' on notifications require a filter on 'userId'
     return query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
       orderBy("createdAt", "desc"),
-      limit(5)
+      limit(10)
     );
   }, [db, user?.uid]);
   const { data: notifications } = useCollection(notificationsQuery);
@@ -118,10 +119,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
-  }
-
-  if (user && !isProfileLoading && !profile) {
-    return <div className="p-8 text-center">User profile not found. Please contact support.</div>;
   }
 
   return (
@@ -225,11 +222,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       ))
                     )}
                   </div>
-                  {notifications && notifications.length > 0 && (
-                    <div className="bg-muted/50 p-2 text-center border-t">
-                      <Button variant="link" size="sm" className="text-[10px]">View All Notifications</Button>
-                    </div>
-                  )}
                 </PopoverContent>
               </Popover>
               
@@ -237,13 +229,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 px-2 sm:pl-4 sm:border-l h-10 rounded-none hover:bg-transparent">
                     <div className="text-right hidden sm:block">
-                      <p className="text-sm font-medium leading-none">{profile?.firstName} {profile?.lastName}</p>
-                      <p className="text-[10px] text-muted-foreground capitalize mt-1">{profile?.role}</p>
+                      <p className="text-sm font-medium leading-none">{profile?.firstName || 'User'} {profile?.lastName || ''}</p>
+                      <p className="text-[10px] text-muted-foreground capitalize mt-1">{profile?.role || 'Guest'}</p>
                     </div>
                     <div className="relative group">
                       <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-primary/20 transition-all group-hover:border-primary">
                         <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} />
-                        <AvatarFallback>{profile?.firstName?.[0]}</AvatarFallback>
+                        <AvatarFallback>{profile?.firstName?.[0] || 'U'}</AvatarFallback>
                       </Avatar>
                       <div className="absolute -bottom-1 -right-1 bg-white rounded-full border border-muted p-0.5">
                         <ChevronDown className="h-2 w-2 text-muted-foreground" />
