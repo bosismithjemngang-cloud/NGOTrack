@@ -76,13 +76,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!user?.uid) return null;
     return doc(db, "user_profiles", user.uid);
   }, [db, user?.uid]);
-  const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
+  const { data: profile } = useDoc(userProfileRef);
 
-  // Notifications logic - strictly scoped by userId for security rules
+  // Notifications logic - strictly ownership-based
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
-    // CRITICAL: The security rules for 'list' on notifications require a filter on 'userId'
-    // This filter must match exactly what is allowed in firestore.rules
     return query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),

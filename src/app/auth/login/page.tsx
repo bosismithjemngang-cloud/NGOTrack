@@ -35,43 +35,45 @@ export default function LoginPage() {
 
       // 1. Check for an active profile directly by UID
       const profileRef = doc(db, "user_profiles", user.uid);
-      const profileSnap = await getDoc(profileRef).catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: profileRef.path,
-          operation: 'get'
-        }));
-        throw err;
-      });
+      const profileSnap = await getDoc(profileRef);
 
       if (!profileSnap.exists()) {
-        // 2. If no UID profile exists, search for an invited profile by email
-        // Security rules allow listing if filtering by own email
+        // 2. Search for an invited profile by email to claim it
+        // The security rules now explicitly allow this query for the authenticated user's email
         const inviteQuery = query(collection(db, "user_profiles"), where("email", "==", email));
         const inviteSnap = await getDocs(inviteQuery).catch(err => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'user_profiles',
-            operation: 'list'
-          }));
-          throw err;
+          // If this fails, the user is signed in but has no profile and no invitation
+          return null;
         });
 
-        if (!inviteSnap.empty) {
+        if (inviteSnap && !inviteSnap.empty) {
           const inviteDoc = inviteSnap.docs[0];
           const inviteData = inviteDoc.data();
 
-          // Claim the invitation: Delete the old doc and create a new one with user UID
-          await deleteDoc(doc(db, "user_profiles", inviteDoc.id));
-          await setDoc(doc(db, "user_profiles", user.uid), {
-            ...inviteData,
-            id: user.uid,
-            status: "active",
-            createdAt: new Date().toISOString(),
-          });
-          
+          if (inviteData.status === "invited") {
+            // Claim the invitation: Delete the placeholder and create a UID-based profile
+            await deleteDoc(doc(db, "user_profiles", inviteDoc.id));
+            await setDoc(doc(db, "user_profiles", user.uid), {
+              ...inviteData,
+              id: user.uid,
+              status: "active",
+              createdAt: new Date().toISOString(),
+            });
+            
+            toast({
+              title: "Invitation Claimed",
+              description: "Welcome to your organization's workspace.",
+            });
+          }
+        } else {
+          // No profile and no invitation found
           toast({
-            title: "Welcome aboard",
-            description: "Your organization membership has been activated.",
+            variant: "destructive",
+            title: "Access Denied",
+            description: "No organization profile found for this account. Please register your organization.",
           });
+          setIsLoading(false);
+          return;
         }
       }
 

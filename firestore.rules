@@ -2,94 +2,126 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Core Authentication Helper ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper to get user data safely. 
-    function getUserData() {
-      let profilePath = /databases/$(database)/documents/user_profiles/$(request.auth.uid);
-      return exists(profilePath) ? get(profilePath).data : null;
+    // --- Profile Helper ---
+    // Safely retrieves the current user's profile document.
+    // Cached across rule evaluations in a single request.
+    function getMyProfile() {
+      let path = /databases/$(database)/documents/user_profiles/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
-    function isMemberOfOrg(orgId) {
-      let data = getUserData();
-      return isSignedIn() && data != null && data.organizationId == orgId;
+    // --- Tenant Isolation Helpers ---
+    // Verifies that a user belongs to a specific organization.
+    function isOrgMember(orgId) {
+      let profile = getMyProfile();
+      return profile != null && profile.organizationId == orgId;
     }
 
-    function isDocInMyOrg(docData) {
-      let data = getUserData();
-      return isSignedIn() && data != null && docData != null && data.organizationId == docData.organizationId;
+    // Verifies that a user is an admin of an organization.
+    function isOrgAdmin(orgId) {
+      let profile = getMyProfile();
+      return profile != null && profile.organizationId == orgId && profile.role == 'admin';
     }
 
+    // Verifies that a document belongs to the user's organization.
+    function belongsToMyOrg(docData) {
+      let profile = getMyProfile();
+      return profile != null && docData != null && profile.organizationId == docData.organizationId;
+    }
+
+    // --- ORGANIZATIONS ---
     match /organizations/{orgId} {
-      allow get: if isSignedIn() && (isMemberOfOrg(orgId) || request.auth.uid == get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId);
+      // Members or the explicit owner can read the org doc.
+      allow get: if isSignedIn() && (
+        isOrgMember(orgId) || 
+        resource.data.ownerId == request.auth.uid
+      );
+      // Anyone signed in can create an organization (becoming the owner).
       allow create: if isSignedIn();
-      allow update: if isMemberOfOrg(orgId) && getUserData().role == 'admin';
+      // Only admins can update organization settings.
+      allow update: if isSignedIn() && isOrgAdmin(orgId);
     }
 
+    // --- USER PROFILES ---
     match /user_profiles/{userId} {
-      // 1. Allow a user to get their own profile by UID.
-      allow get: if isSignedIn() && request.auth.uid == userId;
-      
-      // 2. Allow getting other profiles within the same organization.
-      allow get: if isSignedIn() && getUserData() != null && get(/databases/$(database)/documents/user_profiles/$(userId)).data.organizationId == getUserData().organizationId;
-
-      // 3. Allow listing (querying) profiles.
-      // - Users can query for their own profile by email (essential for signup/login).
-      // - Admins/Staff can query for profiles in their organization.
-      allow list: if isSignedIn() && (
-        (request.query.limit <= 10 && request.auth.token.email != null) ||
-        (getUserData() != null)
+      // 1. Get: Own profile or someone in the same organization.
+      allow get: if isSignedIn() && (
+        request.auth.uid == userId || 
+        belongsToMyOrg(resource.data)
       );
 
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && request.auth.uid == userId;
+      // 2. List: 
+      // - Filtered by own email (CRITICAL for login/signup search).
+      // - Or list members of their own organization.
+      allow list: if isSignedIn() && (
+        resource.data.email == request.auth.token.email ||
+        belongsToMyOrg(resource.data)
+      );
 
+      // 3. Create:
+      // - Users can create their own UID-based profile.
+      // - Admins can create/invite profiles for others.
+      allow create: if isSignedIn() && (
+        request.auth.uid == userId || 
+        (getMyProfile() != null && getMyProfile().role == 'admin')
+      );
+
+      // 4. Update:
+      // - Users can update their own details.
+      // - Admins can manage roles/status in their org.
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId || 
+        (belongsToMyOrg(resource.data) && getMyProfile().role == 'admin')
+      );
+
+      // 5. Delete:
+      // - Users can delete their own profile.
+      // - CLAIMING: A user can delete an 'invited' profile if the email matches theirs.
+      // - Admins can remove staff.
       allow delete: if isSignedIn() && (
-        (request.auth.uid == userId) ||
-        // CRITICAL: Allow invited users to claim their profile by email match
+        request.auth.uid == userId ||
         (resource.data.email == request.auth.token.email && resource.data.status == 'invited') ||
-        (getUserData() != null && getUserData().role == 'admin' && get(/databases/$(database)/documents/user_profiles/$(userId)).data.organizationId == getUserData().organizationId)
+        (belongsToMyOrg(resource.data) && getMyProfile().role == 'admin')
       );
     }
 
+    // --- PROJECTS ---
     match /projects/{projectId} {
-      allow list: if isSignedIn(); 
-      allow get: if isSignedIn() && isDocInMyOrg(resource.data);
-      allow create: if isSignedIn() && (request.resource.data.organizationId != null);
-      allow update: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData().role in ['admin', 'manager']);
-      allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && getUserData().role == 'admin';
-      
+      allow read: if isSignedIn() && belongsToMyOrg(resource.data);
+      allow create: if isSignedIn() && belongsToMyOrg(request.resource.data);
+      allow update: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role in ['admin', 'manager']);
+      allow delete: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role == 'admin');
+
+      // Milestones subcollection
       match /milestones/{id} {
-        allow list, get: if isSignedIn();
-        allow create, update, delete: if isSignedIn() && (getUserData() != null && getUserData().role in ['admin', 'manager']);
+        allow read: if isSignedIn() && belongsToMyOrg(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow write: if isSignedIn() && belongsToMyOrg(get(/databases/$(database)/documents/projects/$(projectId)).data) && (getMyProfile().role in ['admin', 'manager']);
       }
     }
 
-    match /activities/{id} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn() && isDocInMyOrg(resource.data);
-      allow create, update, delete: if isSignedIn();
+    // --- ACTIVITIES, EXPENSES, DOCUMENTS ---
+    match /{collectionName}/{id} {
+      allow read: if collectionName in ['activities', 'expenses', 'documents'] && 
+                     isSignedIn() && belongsToMyOrg(resource.data);
+      
+      allow create: if collectionName in ['activities', 'expenses', 'documents'] && 
+                       isSignedIn() && belongsToMyOrg(request.resource.data);
+
+      allow update, delete: if collectionName in ['activities', 'expenses', 'documents'] && 
+                               isSignedIn() && belongsToMyOrg(resource.data) &&
+                               getMyProfile().role in ['admin', 'manager', 'officer'];
     }
 
-    match /expenses/{id} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn() && isDocInMyOrg(resource.data);
-      allow create, update, delete: if isSignedIn();
-    }
-
-    match /documents/{id} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn() && isDocInMyOrg(resource.data);
-      allow create: if isSignedIn() && (getUserData() != null && getUserData().role in ['admin', 'manager', 'officer']);
-      allow delete: if isSignedIn() && isDocInMyOrg(resource.data) && (getUserData() != null && getUserData().role in ['admin', 'manager']);
-    }
-
+    // --- NOTIFICATIONS ---
     match /notifications/{id} {
-      // Users can only access notifications that belong to them.
-      // We explicitly check the userId field for list/get operations.
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Strictly user-owned data.
+      // List rules in Firestore v2 correctly evaluate against queries with matching filters.
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }

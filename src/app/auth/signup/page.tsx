@@ -12,8 +12,6 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { errorEmitter } from "@/firebase/error-emitter";
-import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -35,28 +33,21 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      // 1. Create Auth User first so we are authenticated for subsequent Firestore checks
+      // 1. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // 2. Check if an invitation profile already exists for this email
-      // Security rules allow listing profiles filtered by own email
+      // 2. Check for invitation
+      // Security rules now explicitly allow searching for own email immediately after auth
       const q = query(collection(db, "user_profiles"), where("email", "==", formData.email));
-      const querySnapshot = await getDocs(q).catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'user_profiles',
-          operation: 'list'
-        }));
-        throw err;
-      });
+      const querySnapshot = await getDocs(q);
       
       const existingProfileDoc = querySnapshot.docs[0];
       const existingProfile = existingProfileDoc?.data();
 
-      if (existingProfile && existingProfileDoc) {
-        // SCENARIO A: User is joining an existing organization via invitation
+      if (existingProfile && existingProfileDoc && existingProfile.status === "invited") {
+        // Joining existing organization
         await deleteDoc(doc(db, "user_profiles", existingProfileDoc.id));
-
         await setDoc(doc(db, "user_profiles", user.uid), {
           ...existingProfile,
           id: user.uid,
@@ -65,13 +56,14 @@ export default function SignupPage() {
           status: "active",
           createdAt: new Date().toISOString(),
         });
+        toast({ title: "Organization Joined", description: "You have been added to the team." });
       } else {
-        // SCENARIO B: User is creating a new organization
+        // Creating new organization
+        const orgId = crypto.randomUUID();
         const finalOrgName = formData.orgName || `${formData.firstName}'s Organization`;
 
-        const orgRef = doc(db, "organizations", crypto.randomUUID());
-        await setDoc(orgRef, {
-          id: orgRef.id,
+        await setDoc(doc(db, "organizations", orgId), {
+          id: orgId,
           name: finalOrgName,
           ownerId: user.uid,
           createdAt: new Date().toISOString(),
@@ -82,11 +74,12 @@ export default function SignupPage() {
           email: formData.email,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          organizationId: orgRef.id,
+          organizationId: orgId,
           role: "admin",
           status: "active",
           createdAt: new Date().toISOString(),
         });
+        toast({ title: "Organization Created", description: "Welcome to NGOTrack." });
       }
 
       router.push("/dashboard");
@@ -125,14 +118,14 @@ export default function SignupPage() {
                 <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input 
                   id="orgName" 
-                  placeholder="Acme Foundation (Ignore if invited)" 
+                  placeholder="e.g. Acme Foundation" 
                   className="pl-10"
                   value={formData.orgName}
                   onChange={(e) => setFormData({...formData, orgName: e.target.value})}
                 />
               </div>
               <p className="text-[10px] text-muted-foreground italic">
-                If you were invited by an admin, leave the Organization Name blank.
+                Leave blank if you were invited by an administrator.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
