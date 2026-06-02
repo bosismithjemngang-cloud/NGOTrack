@@ -78,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userProfileRef);
 
-  // Notifications logic - strictly ownership-based
+  // Notifications logic - strictly ownership-based with mandatory userId filter
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(

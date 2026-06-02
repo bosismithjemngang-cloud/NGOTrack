@@ -8,27 +8,11 @@ service cloud.firestore {
     }
 
     // --- Profile Helper ---
-    // Safely retrieves the current user's profile document.
-    // Cached across rule evaluations in a single request.
     function getMyProfile() {
-      let path = /databases/$(database)/documents/user_profiles/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
+      return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
     }
 
-    // --- Tenant Isolation Helpers ---
-    // Verifies that a user belongs to a specific organization.
-    function isOrgMember(orgId) {
-      let profile = getMyProfile();
-      return profile != null && profile.organizationId == orgId;
-    }
-
-    // Verifies that a user is an admin of an organization.
-    function isOrgAdmin(orgId) {
-      let profile = getMyProfile();
-      return profile != null && profile.organizationId == orgId && profile.role == 'admin';
-    }
-
-    // Verifies that a document belongs to the user's organization.
+    // --- Tenant Isolation Helper ---
     function belongsToMyOrg(docData) {
       let profile = getMyProfile();
       return profile != null && docData != null && profile.organizationId == docData.organizationId;
@@ -36,53 +20,32 @@ service cloud.firestore {
 
     // --- ORGANIZATIONS ---
     match /organizations/{orgId} {
-      // Members or the explicit owner can read the org doc.
       allow get: if isSignedIn() && (
-        isOrgMember(orgId) || 
-        resource.data.ownerId == request.auth.uid
+        (resource.data.ownerId == request.auth.uid) || 
+        (getMyProfile() != null && getMyProfile().organizationId == orgId)
       );
-      // Anyone signed in can create an organization (becoming the owner).
       allow create: if isSignedIn();
-      // Only admins can update organization settings.
-      allow update: if isSignedIn() && isOrgAdmin(orgId);
+      allow update: if isSignedIn() && getMyProfile() != null && getMyProfile().organizationId == orgId && getMyProfile().role == 'admin';
     }
 
     // --- USER PROFILES ---
     match /user_profiles/{userId} {
-      // 1. Get: Own profile or someone in the same organization.
       allow get: if isSignedIn() && (
         request.auth.uid == userId || 
         belongsToMyOrg(resource.data)
       );
-
-      // 2. List: 
-      // - Filtered by own email (CRITICAL for login/signup search).
-      // - Or list members of their own organization.
       allow list: if isSignedIn() && (
         resource.data.email == request.auth.token.email ||
         belongsToMyOrg(resource.data)
       );
-
-      // 3. Create:
-      // - Users can create their own UID-based profile.
-      // - Admins can create/invite profiles for others.
       allow create: if isSignedIn() && (
         request.auth.uid == userId || 
         (getMyProfile() != null && getMyProfile().role == 'admin')
       );
-
-      // 4. Update:
-      // - Users can update their own details.
-      // - Admins can manage roles/status in their org.
       allow update: if isSignedIn() && (
         request.auth.uid == userId || 
         (belongsToMyOrg(resource.data) && getMyProfile().role == 'admin')
       );
-
-      // 5. Delete:
-      // - Users can delete their own profile.
-      // - CLAIMING: A user can delete an 'invited' profile if the email matches theirs.
-      // - Admins can remove staff.
       allow delete: if isSignedIn() && (
         request.auth.uid == userId ||
         (resource.data.email == request.auth.token.email && resource.data.status == 'invited') ||
@@ -97,7 +60,6 @@ service cloud.firestore {
       allow update: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role in ['admin', 'manager']);
       allow delete: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role == 'admin');
 
-      // Milestones subcollection
       match /milestones/{id} {
         allow read: if isSignedIn() && belongsToMyOrg(get(/databases/$(database)/documents/projects/$(projectId)).data);
         allow write: if isSignedIn() && belongsToMyOrg(get(/databases/$(database)/documents/projects/$(projectId)).data) && (getMyProfile().role in ['admin', 'manager']);
@@ -119,8 +81,8 @@ service cloud.firestore {
 
     // --- NOTIFICATIONS ---
     match /notifications/{id} {
-      // Strictly user-owned data.
-      // List rules in Firestore v2 correctly evaluate against queries with matching filters.
+      // Explicitly secure user-owned notifications. 
+      // resource.data.userId == request.auth.uid is the requirement for list queries.
       allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
