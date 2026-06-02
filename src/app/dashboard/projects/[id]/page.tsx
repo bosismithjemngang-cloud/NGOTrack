@@ -358,7 +358,7 @@ export default function ProjectDetailPage() {
             <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Budget</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${(project.budget || 0).toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(project.budget || 0).toLocaleString()} CFA</div>
           </CardContent>
         </Card>
         <Card className="border-none bg-white shadow-sm">
@@ -367,7 +367,7 @@ export default function ProjectDetailPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${totalSpent > (project.budget || 0) ? 'text-destructive' : 'text-foreground'}`}>
-              ${totalSpent.toLocaleString()}
+              {totalSpent.toLocaleString()} CFA
             </div>
           </CardContent>
         </Card>
@@ -376,7 +376,7 @@ export default function ProjectDetailPage() {
             <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Remaining</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">${remainingBudget.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-primary">{remainingBudget.toLocaleString()} CFA</div>
           </CardContent>
         </Card>
         <Card className="border-none bg-white shadow-sm">
@@ -520,14 +520,14 @@ export default function ProjectDetailPage() {
                           <td className="px-6 py-4">
                             <Badge variant="secondary" className="font-normal">{expense.category}</Badge>
                           </td>
-                          <td className="px-6 py-4 text-right font-bold">${expense.amount.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-right font-bold">{expense.amount.toLocaleString()} CFA</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-muted/10 font-bold">
                         <td colSpan={3} className="px-6 py-4 text-right uppercase tracking-wider text-xs">Total Project Spending</td>
-                        <td className="px-6 py-4 text-right text-lg">${totalSpent.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-right text-lg">{totalSpent.toLocaleString()} CFA</td>
                       </tr>
                     </tfoot>
                   </table>

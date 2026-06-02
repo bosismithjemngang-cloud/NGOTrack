@@ -171,7 +171,7 @@ export default function DashboardPage() {
   const stats = [
     { label: "Active Projects", value: projects?.length.toString() || "0", icon: Briefcase, change: "Current initiatives" },
     { label: "Team Members", value: "...", icon: Users, change: "Active staff" },
-    { label: "Budget Used", value: `${utilizationRate}%`, icon: DollarSign, change: `$${totalSpent.toLocaleString()} spent` },
+    { label: "Budget Used", value: `${utilizationRate}%`, icon: DollarSign, change: `${totalSpent.toLocaleString()} CFA spent` },
     { label: "Completed", value: projects?.filter(p => p.status === 'Completed').length.toString() || "0", icon: CheckCircle2, change: "Finished programs" },
   ];
 
@@ -271,7 +271,7 @@ export default function DashboardPage() {
         <Card className="lg:col-span-4 border-none bg-white shadow-sm overflow-hidden">
           <CardHeader>
             <CardTitle className="font-headline text-lg sm:text-xl">Budget vs Expenditure</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Actual spending per project (USD)</CardDescription>
+            <CardDescription className="text-xs sm:text-sm">Actual spending per project (CFA)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[250px] sm:h-[300px] w-full mt-4">
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                 <BarChart data={budgetChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#888' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#888' }} tickFormatter={(v) => `$${v/1000}k`} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#888' }} tickFormatter={(v) => `${v.toLocaleString()}`} />
                   <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '10px' }} />
                   <Bar dataKey="allocated" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} name="Allocated" />
                   <Bar dataKey="spent" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Spent" />

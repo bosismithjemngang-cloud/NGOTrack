@@ -178,8 +178,8 @@ export default function ProjectsPage() {
                       <Input id="location" name="location" placeholder="City, Region" required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="budget">Budget (USD)</Label>
-                      <Input id="budget" name="budget" type="number" placeholder="5000" required />
+                      <Label htmlFor="budget">Budget (CFA)</Label>
+                      <Input id="budget" name="budget" type="number" placeholder="500000" required />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -319,7 +319,7 @@ export default function ProjectsPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Budget</p>
-                      <p className="text-xs sm:text-sm font-semibold truncate">${(project.budget || 0).toLocaleString()}</p>
+                      <p className="text-xs sm:text-sm font-semibold truncate">{(project.budget || 0).toLocaleString()} CFA</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Staff</p>

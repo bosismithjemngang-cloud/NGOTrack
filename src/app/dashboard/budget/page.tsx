@@ -179,8 +179,8 @@ export default function BudgetPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="amount">Amount (USD)</Label>
-                      <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
+                      <Label htmlFor="amount">Amount (CFA)</Label>
+                      <Input id="amount" name="amount" type="number" step="1" placeholder="0" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="date">Expense Date</Label>
@@ -227,7 +227,7 @@ export default function BudgetPage() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totalBudget.toLocaleString()} CFA</div>
             <p className="text-xs text-muted-foreground mt-1">Across {projects?.length || 0} active projects</p>
           </CardContent>
         </Card>
@@ -237,7 +237,7 @@ export default function BudgetPage() {
             <ArrowUpCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalExpenditure.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totalExpenditure.toLocaleString()} CFA</div>
             <p className="text-xs text-destructive mt-1">
               {totalBudget > 0 ? Math.round((totalExpenditure / totalBudget) * 100) : 0}% of your total budget
             </p>
@@ -249,7 +249,7 @@ export default function BudgetPage() {
             <ArrowDownCircle className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${remainingBalance.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{remainingBalance.toLocaleString()} CFA</div>
             <p className="text-xs text-primary mt-1">Available for allocation</p>
           </CardContent>
         </Card>
@@ -316,7 +316,7 @@ export default function BudgetPage() {
                         {projectName}
                       </TableCell>
                       <TableCell className="text-right font-bold text-foreground">
-                        ${expense.amount.toLocaleString()}
+                        {expense.amount.toLocaleString()} CFA
                       </TableCell>
                     </TableRow>
                   );

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Genkit flow for generating a dashboard morning briefing.
@@ -46,7 +47,7 @@ Generate a concise morning briefing for {{{userName}}} at {{{orgName}}}.
 
 Data Context:
 - Projects: {{#each projects}}{{{name}}} ({{{status}}}, {{{progress}}}% complete), {{/each}}
-- Financials: Total Budget Spent: {{{totalSpent}}} USD.
+- Financials: Total Budget Spent: {{{totalSpent}}} CFA.
 - Recent Activities: {{#each recentActivities}}{{{name}}} on project {{{projectName}}}, {{/each}}
 
 Instructions:

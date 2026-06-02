@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Genkit flow for generating NGO impact reports.
@@ -46,7 +47,7 @@ Generate a professional impact report for the following project:
 
 Project Name: {{{projectName}}}
 Description: {{{projectDescription}}}
-Total Budget: {{{totalBudget}}} USD
+Total Budget: {{{totalBudget}}} CFA
 
 Activities logged:
 {{#each activities}}
@@ -55,7 +56,7 @@ Activities logged:
 
 Expenses incurred:
 {{#each expenses}}
-- {{{description}}}: {{{amount}}} USD (Category: {{{category}}})
+- {{{description}}}: {{{amount}}} CFA (Category: {{{category}}})
 {{/each}}
 
 Please provide:
