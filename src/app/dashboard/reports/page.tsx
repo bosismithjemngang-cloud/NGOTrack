@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -42,20 +43,29 @@ export default function ReportsPage() {
       collection(db, "projects"),
       where("organizationId", "==", profile.organizationId)
     );
-  }, [db, profile]);
+  }, [db, profile?.organizationId]);
   const { data: projects } = useCollection(projectsQuery);
 
   // 3. Fetch Activities & Expenses for selected project
+  // We MUST include organizationId filter for multi-tenant security rules to pass on list operations
   const activitiesQuery = useMemoFirebase(() => {
-    if (!selectedProjectId) return null;
-    return query(collection(db, "activities"), where("projectId", "==", selectedProjectId));
-  }, [db, selectedProjectId]);
+    if (!selectedProjectId || !profile?.organizationId) return null;
+    return query(
+      collection(db, "activities"), 
+      where("projectId", "==", selectedProjectId),
+      where("organizationId", "==", profile.organizationId)
+    );
+  }, [db, selectedProjectId, profile?.organizationId]);
   const { data: activities } = useCollection(activitiesQuery);
 
   const expensesQuery = useMemoFirebase(() => {
-    if (!selectedProjectId) return null;
-    return query(collection(db, "expenses"), where("projectId", "==", selectedProjectId));
-  }, [db, selectedProjectId]);
+    if (!selectedProjectId || !profile?.organizationId) return null;
+    return query(
+      collection(db, "expenses"), 
+      where("projectId", "==", selectedProjectId),
+      where("organizationId", "==", profile.organizationId)
+    );
+  }, [db, selectedProjectId, profile?.organizationId]);
   const { data: expenses } = useCollection(expensesQuery);
 
   const handleGenerateReport = async () => {
