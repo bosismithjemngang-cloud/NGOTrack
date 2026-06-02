@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
@@ -13,12 +13,10 @@ import {
   Users, 
   LogOut,
   Search,
-  Bell,
   Settings,
   User as UserIcon,
   ChevronDown,
-  Sparkles,
-  Circle
+  Sparkles
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -43,15 +41,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useUser, useAuth, useDoc, useMemoFirebase, useFirestore, useCollection } from "@/firebase";
+import { useUser, useAuth, useDoc, useMemoFirebase, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
-import { doc, collection, query, where, orderBy, limit } from "firebase/firestore";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { doc } from "firebase/firestore";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -78,20 +70,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userProfileRef);
 
-  // Notifications logic - strictly ownership-based with mandatory userId filter
-  const notificationsQuery = useMemoFirebase(() => {
-    if (!db || !user?.uid) return null;
-    return query(
-      collection(db, "notifications"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(10)
-    );
-  }, [db, user?.uid]);
-  const { data: notifications } = useCollection(notificationsQuery);
-
-  const unreadCount = notifications?.filter(n => !n.read).length || 0;
-
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push("/auth/login");
@@ -101,10 +79,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/");
-  };
-
-  const markAsRead = (id: string) => {
-    updateDocumentNonBlocking(doc(db, "notifications", id), { read: true });
   };
 
   const filteredNavItems = navItems.filter(item => {
@@ -181,49 +155,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               />
             </div>
             <div className="ml-auto flex items-center gap-1 sm:gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground relative">
-                    <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-2 right-2 flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                      </span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 p-0 overflow-hidden">
-                  <div className="bg-muted/50 p-4 border-b">
-                    <h3 className="text-sm font-bold">Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {!notifications || notifications.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-muted-foreground italic">
-                        No recent notifications.
-                      </div>
-                    ) : (
-                      notifications.map((notif) => (
-                        <div 
-                          key={notif.id} 
-                          className={`p-4 border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer relative ${!notif.read ? 'bg-primary/5' : ''}`}
-                          onClick={() => markAsRead(notif.id)}
-                        >
-                          {!notif.read && <Circle className="absolute top-5 right-4 h-2 w-2 fill-primary text-primary" />}
-                          <p className="text-xs font-bold pr-4">{notif.title}</p>
-                          <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-                            {notif.message}
-                          </p>
-                          <p className="text-[8px] text-muted-foreground mt-2 uppercase font-bold tracking-tighter">
-                            {notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 px-2 sm:pl-4 sm:border-l h-10 rounded-none hover:bg-transparent">

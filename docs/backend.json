@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Organization": {
@@ -118,21 +117,6 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "organizationId", "name", "category", "createdAt"]
-    },
-    "Notification": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Notification",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "organizationId": { "type": "string" },
-        "title": { "type": "string" },
-        "message": { "type": "string" },
-        "read": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "userId", "organizationId", "title", "read", "createdAt"]
     }
   },
   "auth": {
@@ -194,14 +178,6 @@
           "entityName": "DocumentMetadata",
           "schema": { "$ref": "#/backend/entities/DocumentMetadata" },
           "description": "Metadata for organization documents."
-        }
-      },
-      {
-        "path": "/notifications/{notifId}",
-        "definition": {
-          "entityName": "Notification",
-          "schema": { "$ref": "#/backend/entities/Notification" },
-          "description": "User notifications."
         }
       }
     ]
