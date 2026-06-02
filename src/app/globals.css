@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -71,17 +72,33 @@
     display: none !important;
   }
   
-  aside, header, footer, button, nav {
+  /* Hide sidebar and header elements during print */
+  aside, 
+  header, 
+  footer, 
+  button, 
+  nav,
+  [data-sidebar="sidebar"],
+  [data-sidebar="trigger"],
+  [role="tablist"] {
     display: none !important;
   }
   
   main {
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
   }
 
   body {
     background-color: white !important;
+    color: black !important;
+  }
+
+  .bg-primary {
+    background-color: #059669 !important; /* emerald-600 */
+    color: white !important;
   }
 
   #printable-report {
@@ -89,6 +106,12 @@
     box-shadow: none !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 2cm !important; /* Add margin for paper */
+    display: block !important;
+  }
+  
+  /* Ensure page breaks don't split cards awkwardly */
+  .card, .Card {
+    page-break-inside: avoid;
   }
 }
