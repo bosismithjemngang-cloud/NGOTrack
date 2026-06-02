@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -9,7 +10,8 @@ import {
   ArrowRight,
   Target,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  BarChart4
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -35,7 +37,7 @@ export default function ReportsPage() {
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Projects
+  // 2. Fetch Projects scoped to organization
   const projectsQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -46,7 +48,7 @@ export default function ReportsPage() {
   const { data: projects, isLoading: isProjectsLoading } = useCollection(projectsQuery);
 
   // 3. Fetch Activities & Expenses for selected project
-  // We MUST include organizationId filter for multi-tenant security rules to pass on list operations
+  // We MUST include organizationId for security rules to validate the list operation
   const activitiesQuery = useMemoFirebase(() => {
     if (!selectedProjectId || !profile?.organizationId) return null;
     return query(
@@ -119,26 +121,28 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-3xl font-headline font-bold">Impact Reporting</h2>
-        <p className="text-muted-foreground">Generate data-driven reports for donors and stakeholders using AI.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-headline font-bold">Impact Reporting</h2>
+          <p className="text-muted-foreground">Generate AI-powered summaries for donors and stakeholders.</p>
+        </div>
       </div>
 
       <Card className="border-none bg-white shadow-sm overflow-hidden">
         <CardHeader className="bg-primary/5 border-b">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
             AI Report Generator
           </CardTitle>
           <CardDescription>
-            Select a project to analyze activities and financial data.
+            Select a project to analyze field activities and financial data.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder={isProjectsLoading ? "Loading projects..." : "Select an active project"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -153,7 +157,7 @@ export default function ReportsPage() {
             <Button 
               onClick={handleGenerateReport} 
               disabled={!selectedProjectId || isGenerating || isProjectsLoading}
-              className="bg-primary hover:bg-primary/90"
+              className="bg-primary hover:bg-primary/90 h-11 px-8"
             >
               {isGenerating ? (
                 <>
@@ -174,15 +178,18 @@ export default function ReportsPage() {
       {report && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           <div className="flex justify-between items-center">
-            <h3 className="text-xl font-headline font-bold">Project Synthesis</h3>
-            <Button variant="outline" size="sm">
+            <h3 className="text-xl font-headline font-bold flex items-center gap-2">
+              <BarChart4 className="h-5 w-5 text-primary" />
+              Project Synthesis
+            </h3>
+            <Button variant="outline" size="sm" className="hidden sm:flex">
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border-none shadow-sm md:col-span-2">
+            <Card className="border-none shadow-sm md:col-span-2 bg-white">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
@@ -190,13 +197,13 @@ export default function ReportsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
                   {report.summary}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm bg-white">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Target className="h-5 w-5 text-primary" />
@@ -215,7 +222,7 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm bg-white">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
@@ -229,15 +236,15 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm md:col-span-2 bg-muted/30 border border-muted">
+            <Card className="border-none shadow-sm md:col-span-2 bg-secondary/10 border border-secondary/20">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-primary" />
-                  M&E Recommendations
+                  Future Recommendations
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground leading-relaxed italic">
+                <p className="text-sm text-foreground/80 leading-relaxed italic">
                   {report.futureRecommendations}
                 </p>
               </CardContent>
@@ -247,9 +254,9 @@ export default function ReportsPage() {
       )}
 
       {!report && !isGenerating && (
-        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl">
+        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5">
           <FileText className="h-12 w-12 mb-4 opacity-20" />
-          <p>Select a project and click "Generate Report" to begin analysis.</p>
+          <p className="text-sm">Select a project and click "Generate Report" to begin AI synthesis.</p>
         </div>
       )}
     </div>

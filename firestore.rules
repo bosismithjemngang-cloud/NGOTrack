@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -8,14 +9,11 @@ service cloud.firestore {
     }
 
     // --- Profile Fetcher ---
-    // Fetches the profile of the current authenticated user.
     function getMyProfile() {
       return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
     }
 
     // --- Tenant Isolation Helper ---
-    // Checks if a document belongs to the same organization as the current user.
-    // This helper is optimized for list operations that use 'where("organizationId", "==", ...)'
     function isMemberOf(orgId) {
       let profile = get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
       return profile != null && profile.organizationId == orgId;
@@ -36,28 +34,25 @@ service cloud.firestore {
       // Users can always read their own profile
       allow get: if isSignedIn() && request.auth.uid == userId;
       
-      // Admins and colleagues can read profiles in the same org
-      allow get: if isSignedIn() && isMemberOf(resource.data.organizationId);
-      
-      // Allow searching for an invitation by email during login/signup
+      // Allow searching for invitation by email or if in same org
       allow list: if isSignedIn() && (
         resource.data.email == request.auth.token.email ||
         isMemberOf(resource.data.organizationId)
       );
 
-      // Anyone can create their own profile during initial signup
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      
-      // Admins can create/invite others
-      allow create: if isSignedIn() && getMyProfile().role == 'admin';
+      // Self creation or admin creation
+      allow create: if isSignedIn() && (
+        request.auth.uid == userId || 
+        getMyProfile().role == 'admin'
+      );
 
       allow update: if isSignedIn() && (
         request.auth.uid == userId || 
         (isMemberOf(resource.data.organizationId) && getMyProfile().role == 'admin')
       );
       
+      // Allow deleting invited placeholder when claiming it
       allow delete: if isSignedIn() && (
-        request.auth.uid == userId ||
         (resource.data.email == request.auth.token.email && resource.data.status == 'invited') ||
         (isMemberOf(resource.data.organizationId) && getMyProfile().role == 'admin')
       );

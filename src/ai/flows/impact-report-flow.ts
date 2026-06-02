@@ -3,7 +3,7 @@
 /**
  * @fileOverview Genkit flow for generating NGO impact reports.
  *
- * - generateImpactReport - Synthesizes project data into a professional report.
+ * - generateImpactReport - Synthesizes project data into a professional report using Gemini.
  */
 
 import { ai } from '@/ai/genkit';
