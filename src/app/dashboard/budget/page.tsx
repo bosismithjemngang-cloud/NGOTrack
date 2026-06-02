@@ -105,6 +105,44 @@ export default function BudgetPage() {
   const totalExpenditure = expensesData?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
   const remainingBalance = totalBudget - totalExpenditure;
 
+  const handleExport = () => {
+    if (!expenses || expenses.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Data",
+        description: "There are no financial records to export.",
+      });
+      return;
+    }
+
+    const headers = ["Date", "Description", "Category", "Project", "Amount (CFA)"];
+    const rows = expenses.map(e => {
+      const projectName = projects?.find(p => p.id === e.projectId)?.name || "General";
+      return [
+        e.expenseDate || "N/A",
+        `"${(e.description || "").replace(/"/g, '""')}"`,
+        e.category,
+        `"${projectName.replace(/"/g, '""')}"`,
+        e.amount
+      ].join(",");
+    });
+
+    const csvData = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `ngo_expenditure_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export Successful",
+      description: "The expenditure report has been downloaded.",
+    });
+  };
+
   const handleLogExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!profile?.organizationId) return;
@@ -128,7 +166,7 @@ export default function BudgetPage() {
       setIsLogDialogOpen(false);
       toast({
         title: "Expense Logged",
-        description: "Your organization financial records have been updated.",
+        description: "The transaction has been added to the organization's records.",
       });
     } finally {
       setIsSubmitting(false);
@@ -143,9 +181,9 @@ export default function BudgetPage() {
           <p className="text-muted-foreground">Track project funds and real-time spending for your organization.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            Export CSV
           </Button>
           
           <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
@@ -239,7 +277,7 @@ export default function BudgetPage() {
           <CardContent>
             <div className="text-2xl font-bold">{totalExpenditure.toLocaleString()} CFA</div>
             <p className="text-xs text-destructive mt-1">
-              {totalBudget > 0 ? Math.round((totalExpenditure / totalBudget) * 100) : 0}% of your total budget
+              {totalBudget > 0 ? Math.round((totalExpenditure / totalBudget) * 100) : 0}% of total allocation
             </p>
           </CardContent>
         </Card>
@@ -250,7 +288,7 @@ export default function BudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{remainingBalance.toLocaleString()} CFA</div>
-            <p className="text-xs text-primary mt-1">Available for allocation</p>
+            <p className="text-xs text-primary mt-1">Available for deployment</p>
           </CardContent>
         </Card>
       </div>
