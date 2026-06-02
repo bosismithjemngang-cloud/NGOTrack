@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -64,5 +63,32 @@
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline font-semibold tracking-tight;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  aside, header, footer, button, nav {
+    display: none !important;
+  }
+  
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body {
+    background-color: white !important;
+  }
+
+  #printable-report {
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }

@@ -1,34 +1,53 @@
-
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { 
   FileText, 
-  Sparkles, 
   Download, 
   Loader2, 
-  ArrowRight,
-  Target,
-  TrendingUp,
-  AlertCircle,
-  BarChart4
+  Target, 
+  TrendingUp, 
+  BarChart4,
+  Briefcase,
+  MapPin,
+  Calendar,
+  DollarSign,
+  PieChart as PieChartIcon,
+  CheckCircle2,
+  Clock,
+  ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
-import { generateImpactReport, type ImpactReportOutput } from "@/ai/flows/impact-report-flow";
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid
+} from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+const COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function ReportsPage() {
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const reportRef = useRef<HTMLDivElement>(null);
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [report, setReport] = useState<ImpactReportOutput | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   // 1. Fetch User Profile
   const profileRef = useMemoFirebase(() => {
@@ -37,7 +56,7 @@ export default function ReportsPage() {
   }, [db, user]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Projects scoped to organization
+  // 2. Fetch Projects
   const projectsQuery = useMemoFirebase(() => {
     if (!profile?.organizationId) return null;
     return query(
@@ -47,8 +66,9 @@ export default function ReportsPage() {
   }, [db, profile?.organizationId]);
   const { data: projects, isLoading: isProjectsLoading } = useCollection(projectsQuery);
 
-  // 3. Fetch Activities & Expenses for selected project
-  // We MUST include organizationId for security rules to validate the list operation
+  // 3. Fetch Project Specific Data
+  const selectedProject = projects?.find(p => p.id === selectedProjectId);
+
   const activitiesQuery = useMemoFirebase(() => {
     if (!selectedProjectId || !profile?.organizationId) return null;
     return query(
@@ -57,7 +77,7 @@ export default function ReportsPage() {
       where("organizationId", "==", profile.organizationId)
     );
   }, [db, selectedProjectId, profile?.organizationId]);
-  const { data: activities, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
+  const { data: activities } = useCollection(activitiesQuery);
 
   const expensesQuery = useMemoFirebase(() => {
     if (!selectedProjectId || !profile?.organizationId) return null;
@@ -67,75 +87,209 @@ export default function ReportsPage() {
       where("organizationId", "==", profile.organizationId)
     );
   }, [db, selectedProjectId, profile?.organizationId]);
-  const { data: expenses, isLoading: isExpensesLoading } = useCollection(expensesQuery);
+  const { data: expenses } = useCollection(expensesQuery);
 
-  const handleGenerateReport = async () => {
-    if (!selectedProjectId || !projects) return;
-    
-    const project = projects.find(p => p.id === selectedProjectId);
-    if (!project) return;
+  const milestonesQuery = useMemoFirebase(() => {
+    if (!selectedProjectId) return null;
+    return collection(db, "projects", selectedProjectId, "milestones");
+  }, [db, selectedProjectId]);
+  const { data: milestones } = useCollection(milestonesQuery);
 
-    if (isActivitiesLoading || isExpensesLoading) {
-      toast({
-        title: "Wait a moment",
-        description: "We're still gathering project data.",
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    setReport(null);
-
-    try {
-      const result = await generateImpactReport({
-        projectName: project.name,
-        projectDescription: project.description || "No description provided",
-        totalBudget: project.budget || 0,
-        activities: (activities || []).map(a => ({
-          name: a.name,
-          description: a.description,
-          progressPercentage: a.progressPercentage,
-          createdAt: a.createdAt
-        })),
-        expenses: (expenses || []).map(e => ({
-          amount: e.amount,
-          category: e.category,
-          description: e.description
-        }))
-      });
-      setReport(result);
-      toast({
-        title: "Report Generated",
-        description: "AI impact report is ready for review.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description: error.message || "Failed to generate report.",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleGenerateReport = () => {
+    if (!selectedProjectId) return;
+    setShowReport(true);
+    toast({
+      title: "Report Generated",
+      description: "Detailed project analysis is ready.",
+    });
   };
+
+  const handleDownloadPdf = () => {
+    window.print();
+  };
+
+  const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
+  const budget = selectedProject?.budget || 0;
+  const utilizationRate = budget > 0 ? Math.round((totalSpent / budget) * 100) : 0;
+
+  const expenseByCategory = React.useMemo(() => {
+    if (!expenses) return [];
+    const categories: Record<string, number> = {};
+    expenses.forEach(e => {
+      categories[e.category] = (categories[e.category] || 0) + e.amount;
+    });
+    return Object.entries(categories).map(([name, value]) => ({ name, value }));
+  }, [expenses]);
+
+  if (showReport && selectedProject) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between no-print">
+          <Button variant="ghost" onClick={() => setShowReport(false)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Selection
+          </Button>
+          <Button onClick={handleDownloadPdf} className="bg-primary hover:bg-primary/90">
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
+
+        <div id="printable-report" ref={reportRef} className="bg-white p-8 sm:p-12 rounded-xl shadow-sm border space-y-10 print:shadow-none print:border-none print:p-0">
+          {/* Report Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+            <div className="space-y-2">
+              <Badge variant="outline" className="text-primary border-primary uppercase tracking-widest font-bold px-3">Impact Report</Badge>
+              <h1 className="text-4xl font-headline font-bold text-foreground">{selectedProject.name}</h1>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mt-2">
+                <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> {selectedProject.location}</span>
+                <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" /> Period: {new Date(selectedProject.createdAt).toLocaleDateString()} - Present</span>
+              </div>
+            </div>
+            <div className="text-right flex flex-col items-end gap-2">
+              <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Status</div>
+              <Badge className={selectedProject.status === 'Completed' ? 'bg-primary' : 'bg-secondary text-blue-900'}>
+                {selectedProject.status}
+              </Badge>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Budget</p>
+              <p className="text-xl font-bold">{budget.toLocaleString()} CFA</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Spent</p>
+              <p className="text-xl font-bold text-destructive">{totalSpent.toLocaleString()} CFA</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Utilization</p>
+              <p className="text-xl font-bold text-primary">{utilizationRate}%</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Completion</p>
+              <p className="text-xl font-bold text-primary">{selectedProject.progress || 0}%</p>
+            </div>
+          </div>
+
+          {/* Analysis Charts */}
+          <div className="grid md:grid-cols-2 gap-8 pt-4">
+            <Card className="border shadow-none bg-muted/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2"><PieChartIcon className="h-4 w-4" /> Spending by Category</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie 
+                      data={expenseByCategory} 
+                      cx="50%" cy="50%" 
+                      innerRadius={60} 
+                      outerRadius={80} 
+                      paddingAngle={5} 
+                      dataKey="value"
+                    >
+                      {expenseByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <RechartsTooltip formatter={(v: number) => `${v.toLocaleString()} CFA`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border shadow-none bg-muted/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Financial Health</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-bold uppercase">
+                    <span>Budget Used</span>
+                    <span>{utilizationRate}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary" style={{ width: `${utilizationRate}%` }} />
+                  </div>
+                </div>
+                <div className="space-y-2 pt-2 text-sm text-muted-foreground">
+                  <p>• {expenseByCategory.length} different cost categories tracked.</p>
+                  <p>• {totalSpent > budget ? 'Budget overrun detected.' : 'Remaining balance: ' + (budget - totalSpent).toLocaleString() + ' CFA'}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Milestones */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold flex items-center gap-2 border-b pb-2">
+              <Target className="h-5 w-5 text-primary" />
+              Strategic Roadmap
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {milestones?.map((m) => (
+                <div key={m.id} className="p-4 rounded-lg border bg-muted/5 flex items-start gap-3">
+                  <div className={`mt-1 h-5 w-5 rounded-full flex items-center justify-center ${m.completed ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
+                    <CheckCircle2 className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <p className={`font-bold text-sm ${m.completed ? 'line-through text-muted-foreground' : ''}`}>{m.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Due: {new Date(m.dueDate).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Activity Logs */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold flex items-center gap-2 border-b pb-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Recent Field Activities
+            </h3>
+            <div className="space-y-3">
+              {activities?.slice(0, 5).map((a) => (
+                <div key={a.id} className="flex gap-4 p-4 hover:bg-muted/5 transition-colors border-l-2 border-primary/20">
+                  <div className="text-xs font-bold text-muted-foreground min-w-[80px]">
+                    {new Date(a.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-sm">{a.name}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{a.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-12 text-center text-[10px] text-muted-foreground uppercase tracking-widest border-t mt-12">
+            Generated by NGOTrack Impact Engine • Secure Organization Data
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-headline font-bold">Impact Reporting</h2>
-          <p className="text-muted-foreground">Generate AI-powered summaries for donors and stakeholders.</p>
+          <h2 className="text-3xl font-headline font-bold text-foreground">Detailed Project Reporting</h2>
+          <p className="text-muted-foreground text-sm sm:text-base">Synthesize field activities and financial data into professional PDF reports.</p>
         </div>
       </div>
 
       <Card className="border-none bg-white shadow-sm overflow-hidden">
         <CardHeader className="bg-primary/5 border-b">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Sparkles className="h-5 w-5 text-primary" />
-            AI Report Generator
+            <FileText className="h-5 w-5 text-primary" />
+            Report Configuration
           </CardTitle>
           <CardDescription>
-            Select a project to analyze field activities and financial data.
+            Select a project to generate a comprehensive status and impact report.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -156,107 +310,20 @@ export default function ReportsPage() {
             </div>
             <Button 
               onClick={handleGenerateReport} 
-              disabled={!selectedProjectId || isGenerating || isProjectsLoading}
+              disabled={!selectedProjectId || isProjectsLoading}
               className="bg-primary hover:bg-primary/90 h-11 px-8"
             >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Synthesizing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Report
-                </>
-              )}
+              <BarChart4 className="mr-2 h-4 w-4" />
+              Prepare Detailed Report
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {report && (
-        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-headline font-bold flex items-center gap-2">
-              <BarChart4 className="h-5 w-5 text-primary" />
-              Project Synthesis
-            </h3>
-            <Button variant="outline" size="sm" className="hidden sm:flex">
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border-none shadow-sm md:col-span-2 bg-white">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Executive Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                  {report.summary}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-white">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-primary" />
-                  Key Milestones
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  {report.milestonesReached.map((milestone, i) => (
-                    <li key={i} className="flex gap-3 text-sm text-muted-foreground italic">
-                      <ArrowRight className="h-4 w-4 text-primary shrink-0" />
-                      {milestone}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-white">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Financial Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {report.financialEfficiency}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm md:col-span-2 bg-secondary/10 border border-secondary/20">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-primary" />
-                  Future Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-foreground/80 leading-relaxed italic">
-                  {report.futureRecommendations}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {!report && !isGenerating && (
-        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5">
+      {!showReport && (
+        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5 p-6 text-center">
           <FileText className="h-12 w-12 mb-4 opacity-20" />
-          <p className="text-sm">Select a project and click "Generate Report" to begin AI synthesis.</p>
+          <p className="text-sm max-w-xs mx-auto">Select a project and click "Prepare Detailed Report" to visualize impact, finances, and roadmap progress.</p>
         </div>
       )}
     </div>
