@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -44,7 +43,7 @@ export default function ReportsPage() {
       where("organizationId", "==", profile.organizationId)
     );
   }, [db, profile?.organizationId]);
-  const { data: projects } = useCollection(projectsQuery);
+  const { data: projects, isLoading: isProjectsLoading } = useCollection(projectsQuery);
 
   // 3. Fetch Activities & Expenses for selected project
   // We MUST include organizationId filter for multi-tenant security rules to pass on list operations
@@ -56,7 +55,7 @@ export default function ReportsPage() {
       where("organizationId", "==", profile.organizationId)
     );
   }, [db, selectedProjectId, profile?.organizationId]);
-  const { data: activities } = useCollection(activitiesQuery);
+  const { data: activities, isLoading: isActivitiesLoading } = useCollection(activitiesQuery);
 
   const expensesQuery = useMemoFirebase(() => {
     if (!selectedProjectId || !profile?.organizationId) return null;
@@ -66,13 +65,21 @@ export default function ReportsPage() {
       where("organizationId", "==", profile.organizationId)
     );
   }, [db, selectedProjectId, profile?.organizationId]);
-  const { data: expenses } = useCollection(expensesQuery);
+  const { data: expenses, isLoading: isExpensesLoading } = useCollection(expensesQuery);
 
   const handleGenerateReport = async () => {
     if (!selectedProjectId || !projects) return;
     
     const project = projects.find(p => p.id === selectedProjectId);
     if (!project) return;
+
+    if (isActivitiesLoading || isExpensesLoading) {
+      toast({
+        title: "Wait a moment",
+        description: "We're still gathering project data.",
+      });
+      return;
+    }
 
     setIsGenerating(true);
     setReport(null);
@@ -132,7 +139,7 @@ export default function ReportsPage() {
             <div className="flex-1">
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an active project" />
+                  <SelectValue placeholder={isProjectsLoading ? "Loading projects..." : "Select an active project"} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects?.map((project) => (
@@ -145,18 +152,18 @@ export default function ReportsPage() {
             </div>
             <Button 
               onClick={handleGenerateReport} 
-              disabled={!selectedProjectId || isGenerating}
+              disabled={!selectedProjectId || isGenerating || isProjectsLoading}
               className="bg-primary hover:bg-primary/90"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing Data...
+                  Synthesizing...
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Impact Report
+                  Generate Report
                 </>
               )}
             </Button>
@@ -167,7 +174,7 @@ export default function ReportsPage() {
       {report && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           <div className="flex justify-between items-center">
-            <h3 className="text-xl font-headline font-bold">Report Preview</h3>
+            <h3 className="text-xl font-headline font-bold">Project Synthesis</h3>
             <Button variant="outline" size="sm">
               <Download className="mr-2 h-4 w-4" />
               Download PDF
@@ -242,7 +249,7 @@ export default function ReportsPage() {
       {!report && !isGenerating && (
         <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl">
           <FileText className="h-12 w-12 mb-4 opacity-20" />
-          <p>Select a project above to generate a report.</p>
+          <p>Select a project and click "Generate Report" to begin analysis.</p>
         </div>
       )}
     </div>
