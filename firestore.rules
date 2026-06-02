@@ -2,50 +2,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Core Authentication Helper ---
+    // --- Core Authentication Helpers ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // --- Profile Helper ---
     function getMyProfile() {
       return get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
     }
 
     // --- Tenant Isolation Helper ---
+    // Specifically checks if a document's organizationId matches the current user's profile
     function belongsToMyOrg(docData) {
-      let profile = getMyProfile();
+      let profile = get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data;
       return profile != null && docData != null && profile.organizationId == docData.organizationId;
     }
 
     // --- ORGANIZATIONS ---
     match /organizations/{orgId} {
       allow get: if isSignedIn() && (
-        (resource.data.ownerId == request.auth.uid) || 
-        (getMyProfile() != null && getMyProfile().organizationId == orgId)
+        resource.data.ownerId == request.auth.uid || 
+        getMyProfile().organizationId == orgId
       );
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && getMyProfile() != null && getMyProfile().organizationId == orgId && getMyProfile().role == 'admin';
+      allow update: if isSignedIn() && getMyProfile().organizationId == orgId && getMyProfile().role == 'admin';
     }
 
     // --- USER PROFILES ---
     match /user_profiles/{userId} {
-      allow get: if isSignedIn() && (
-        request.auth.uid == userId || 
-        belongsToMyOrg(resource.data)
-      );
+      // Users can always read their own profile
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      
+      // Admins and colleagues can read profiles in the same org
+      allow get: if isSignedIn() && belongsToMyOrg(resource.data);
+      
+      // Allow searching for an invitation by email during login/signup
       allow list: if isSignedIn() && (
         resource.data.email == request.auth.token.email ||
         belongsToMyOrg(resource.data)
       );
-      allow create: if isSignedIn() && (
-        request.auth.uid == userId || 
-        (getMyProfile() != null && getMyProfile().role == 'admin')
-      );
+
+      // Anyone can create their own profile during initial signup
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Admins can create/invite others
+      allow create: if isSignedIn() && getMyProfile().role == 'admin';
+
       allow update: if isSignedIn() && (
         request.auth.uid == userId || 
         (belongsToMyOrg(resource.data) && getMyProfile().role == 'admin')
       );
+      
       allow delete: if isSignedIn() && (
         request.auth.uid == userId ||
         (resource.data.email == request.auth.token.email && resource.data.status == 'invited') ||
@@ -66,17 +73,25 @@ service cloud.firestore {
       }
     }
 
-    // --- ACTIVITIES, EXPENSES, DOCUMENTS ---
-    match /{collectionName}/{id} {
-      allow read: if collectionName in ['activities', 'expenses', 'documents'] && 
-                     isSignedIn() && belongsToMyOrg(resource.data);
-      
-      allow create: if collectionName in ['activities', 'expenses', 'documents'] && 
-                       isSignedIn() && belongsToMyOrg(request.resource.data);
+    // --- ACTIVITIES ---
+    match /activities/{id} {
+      allow read: if isSignedIn() && belongsToMyOrg(resource.data);
+      allow create: if isSignedIn() && belongsToMyOrg(request.resource.data);
+      allow update, delete: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role in ['admin', 'manager', 'officer']);
+    }
 
-      allow update, delete: if collectionName in ['activities', 'expenses', 'documents'] && 
-                               isSignedIn() && belongsToMyOrg(resource.data) &&
-                               getMyProfile().role in ['admin', 'manager', 'officer'];
+    // --- EXPENSES ---
+    match /expenses/{id} {
+      allow read: if isSignedIn() && belongsToMyOrg(resource.data);
+      allow create: if isSignedIn() && belongsToMyOrg(request.resource.data);
+      allow update, delete: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role in ['admin', 'manager', 'officer']);
+    }
+
+    // --- DOCUMENTS ---
+    match /documents/{id} {
+      allow read: if isSignedIn() && belongsToMyOrg(resource.data);
+      allow create: if isSignedIn() && belongsToMyOrg(request.resource.data);
+      allow update, delete: if isSignedIn() && belongsToMyOrg(resource.data) && (getMyProfile().role in ['admin', 'manager', 'officer']);
     }
   }
 }

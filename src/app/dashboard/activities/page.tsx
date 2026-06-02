@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -45,7 +44,7 @@ export default function ActivitiesPage() {
       collection(db, "activities"),
       where("organizationId", "==", profile.organizationId)
     );
-  }, [db, profile]);
+  }, [db, profile?.organizationId]);
   const { data: activitiesData, isLoading } = useCollection(activitiesQuery);
 
   // 3. Fetch projects to map project IDs to names
@@ -55,7 +54,7 @@ export default function ActivitiesPage() {
       collection(db, "projects"),
       where("organizationId", "==", profile.organizationId)
     );
-  }, [db, profile]);
+  }, [db, profile?.organizationId]);
   const { data: projects } = useCollection(projectsQuery);
 
   // Helper to get project name
@@ -92,7 +91,7 @@ export default function ActivitiesPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
+      <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -49,7 +48,7 @@ export default function DashboardPage() {
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "user_profiles", user.uid);
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: profile } = useDoc(profileRef);
 
   const orgRef = useMemoFirebase(() => {
@@ -65,7 +64,7 @@ export default function DashboardPage() {
       where("organizationId", "==", profile.organizationId),
       limit(20)
     );
-  }, [db, profile]);
+  }, [db, profile?.organizationId]);
   const { data: activitiesData } = useCollection(activitiesQuery);
 
   const projectsQuery = useMemoFirebase(() => {
@@ -74,7 +73,7 @@ export default function DashboardPage() {
       collection(db, "projects"),
       where("organizationId", "==", profile.organizationId)
     );
-  }, [db, profile]);
+  }, [db, profile?.organizationId]);
   const { data: projects } = useCollection(projectsQuery);
 
   const expensesQuery = useMemoFirebase(() => {
@@ -83,7 +82,7 @@ export default function DashboardPage() {
       collection(db, "expenses"),
       where("organizationId", "==", profile.organizationId)
     );
-  }, [db, profile]);
+  }, [db, profile?.organizationId]);
   const { data: expenses } = useCollection(expensesQuery);
 
   const totalSpent = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
